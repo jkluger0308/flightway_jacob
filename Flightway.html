@@ -27,6 +27,100 @@
   html { scroll-behavior: smooth; }
   body { font-family: 'Inter', -apple-system, sans-serif; color: var(--text); background: var(--bg); line-height: 1.6; -webkit-font-smoothing: antialiased; }
 
+  /* ─────────────── AI COACH ─────────────── */
+  #page-coach { padding: 110px 24px 60px; min-height: 100vh; background: var(--bg); }
+  .coach-shell { max-width: 820px; margin: 0 auto; background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius); box-shadow: var(--shadow-md); display: flex; flex-direction: column; overflow: hidden; min-height: 75vh; }
+  .coach-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 26px 28px 18px; border-bottom: 1px solid var(--border-light); }
+  .coach-eye { font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-tertiary); font-weight: 600; margin-bottom: 6px; }
+  .coach-title { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 600; color: var(--text); margin: 0; line-height: 1.2; }
+  .coach-sub { font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px; }
+  .coach-header-actions { display: flex; gap: 8px; }
+  .coach-gear { width: 38px; height: 38px; border-radius: 50%; background: var(--bg-alt); border: 1px solid var(--border-light); cursor: pointer; font-size: 1.05rem; color: var(--text-secondary); transition: all var(--transition); display: inline-flex; align-items: center; justify-content: center; }
+  .coach-gear:hover { background: var(--accent); color: #fff; border-color: var(--accent); transform: rotate(45deg); }
+
+  .coach-progress { padding: 14px 28px 4px; }
+  .coach-progress-bar { height: 4px; background: var(--border-light); border-radius: 100px; overflow: hidden; }
+  .coach-progress-fill { height: 100%; background: linear-gradient(90deg, var(--q-blue), var(--q-lblue)); border-radius: 100px; transition: width 0.35s ease; }
+  .coach-progress-label { font-size: 0.72rem; color: var(--text-tertiary); margin-top: 8px; letter-spacing: 0.04em; }
+
+  .coach-chat { flex: 1; min-height: 360px; max-height: 56vh; overflow-y: auto; padding: 22px 28px; display: flex; flex-direction: column; gap: 14px; background: var(--bg); }
+  .coach-empty { color: var(--text-tertiary); font-size: 0.92rem; text-align: center; margin: auto 20px; padding: 36px 18px; border: 1px dashed var(--border); border-radius: var(--radius-sm); }
+  .coach-msg { max-width: 78%; padding: 12px 16px; border-radius: 16px; font-size: 0.94rem; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+  .coach-msg.user { align-self: flex-end; background: var(--q-blue); color: #fff; border-bottom-right-radius: 6px; }
+  .coach-msg.assistant { align-self: flex-start; background: var(--surface); color: var(--text); border: 1px solid var(--border-light); border-bottom-left-radius: 6px; }
+  .coach-msg.system { align-self: center; background: transparent; color: var(--text-tertiary); font-size: 0.78rem; font-style: italic; padding: 4px 12px; }
+  .coach-typing { align-self: flex-start; background: var(--surface); border: 1px solid var(--border-light); color: var(--text-secondary); padding: 12px 16px; border-radius: 16px; border-bottom-left-radius: 6px; font-size: 0.88rem; display: inline-flex; gap: 6px; align-items: center; }
+  .coach-typing .dot { width: 6px; height: 6px; background: var(--text-tertiary); border-radius: 50%; animation: coach-pulse 1.2s infinite ease-in-out; }
+  .coach-typing .dot:nth-child(2) { animation-delay: 0.15s; }
+  .coach-typing .dot:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes coach-pulse { 0%, 80%, 100% { opacity: 0.3; transform: scale(0.85); } 40% { opacity: 1; transform: scale(1); } }
+
+  .coach-updating { display: none; align-items: center; gap: 12px; padding: 14px 28px; background: linear-gradient(90deg, rgba(26,86,219,0.06), rgba(59,130,246,0.06)); border-top: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); color: var(--q-blue); font-size: 0.88rem; font-weight: 500; }
+  .coach-updating.vis { display: flex; }
+  .coach-spinner { width: 16px; height: 16px; border: 2px solid rgba(26,86,219,0.2); border-top-color: var(--q-blue); border-radius: 50%; animation: coach-spin 0.8s linear infinite; }
+  @keyframes coach-spin { to { transform: rotate(360deg); } }
+
+  .coach-input-row { display: flex; gap: 10px; padding: 16px 22px 18px; border-top: 1px solid var(--border-light); background: var(--surface); align-items: flex-end; }
+  .coach-input { flex: 1; resize: none; min-height: 44px; max-height: 140px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; font-family: inherit; font-size: 0.95rem; color: var(--text); background: var(--bg); outline: none; transition: border-color var(--transition), background var(--transition); }
+  .coach-input:focus { border-color: var(--q-blue); background: var(--surface); }
+  .coach-input:disabled { opacity: 0.55; cursor: not-allowed; }
+  .coach-send-btn { padding: 12px 22px; background: var(--q-blue); color: #fff; border: none; border-radius: 100px; font-weight: 600; font-size: 0.92rem; cursor: pointer; transition: all var(--transition); white-space: nowrap; }
+  .coach-send-btn:hover:not(:disabled) { background: var(--accent); transform: translateY(-1px); }
+  .coach-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .coach-error { color: var(--q-red); font-size: 0.82rem; padding: 0 28px 14px; min-height: 1.2em; }
+
+  /* Coach modals (settings, signup) */
+  .coach-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 200; display: none; align-items: center; justify-content: center; padding: 24px; opacity: 0; transition: opacity 0.2s ease; }
+  .coach-overlay.vis { display: flex; opacity: 1; }
+  .coach-settings-modal, .coach-signup-modal { width: 100%; max-width: 580px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg); max-height: 88vh; display: flex; flex-direction: column; }
+  .coach-signup-modal { max-width: 460px; }
+  .coach-settings-head { display: flex; align-items: center; justify-content: space-between; padding: 22px 26px 14px; border-bottom: 1px solid var(--border-light); }
+  .coach-settings-title { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 600; color: var(--text); }
+  .coach-x { background: transparent; border: none; font-size: 1.6rem; line-height: 1; color: var(--text-tertiary); cursor: pointer; padding: 4px 8px; border-radius: 6px; transition: all var(--transition); }
+  .coach-x:hover { background: var(--bg-alt); color: var(--text); }
+  .coach-settings-body { padding: 20px 26px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+  .coach-settings-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+  .coach-settings-label { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+  .coach-settings-help { font-size: 0.82rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.5; }
+  .coach-settings-divider { height: 1px; background: var(--border-light); margin: 6px 0; }
+  .coach-dossier-text { width: 100%; min-height: 280px; max-height: 50vh; padding: 14px; border: 1px solid var(--border); border-radius: 10px; font-family: 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 0.84rem; line-height: 1.55; color: var(--text); background: var(--bg); resize: vertical; outline: none; }
+  .coach-dossier-text:focus { border-color: var(--q-blue); background: var(--surface); }
+  .coach-dossier-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .coach-dossier-status { font-size: 0.78rem; color: var(--text-tertiary); }
+  .coach-dossier-status.ok { color: var(--green); }
+  .coach-dossier-status.err { color: var(--q-red); }
+  .coach-primary-btn { padding: 10px 20px; background: var(--q-blue); color: #fff; border: none; border-radius: 100px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all var(--transition); }
+  .coach-primary-btn:hover:not(:disabled) { background: var(--accent); }
+  .coach-primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .coach-secondary-btn { padding: 8px 14px; background: var(--bg-alt); color: var(--text-secondary); border: 1px solid var(--border-light); border-radius: 100px; font-weight: 500; font-size: 0.82rem; cursor: pointer; transition: all var(--transition); }
+  .coach-secondary-btn:hover { color: var(--text); border-color: var(--border); }
+  .coach-danger-btn { padding: 8px 16px; background: transparent; color: var(--q-red); border: 1px solid var(--q-red); border-radius: 100px; font-weight: 500; font-size: 0.82rem; cursor: pointer; transition: all var(--transition); }
+  .coach-danger-btn:hover { background: var(--q-red); color: #fff; }
+  .coach-email-input { width: 100%; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; font-size: 0.96rem; outline: none; transition: border-color var(--transition); }
+  .coach-email-input:focus { border-color: var(--q-blue); }
+
+  /* Account-card injected onto the results page */
+  .coach-results-card { background: linear-gradient(135deg, #1a56db 0%, #3b82f6 100%); color: #fff; border-radius: var(--radius); padding: 28px 32px; margin: 28px 0; box-shadow: 0 12px 28px rgba(26,86,219,0.25); display: flex; flex-direction: column; gap: 14px; }
+  .coach-results-eye { font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; opacity: 0.85; }
+  .coach-results-title { font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 600; line-height: 1.25; }
+  .coach-results-sub { font-size: 0.92rem; opacity: 0.9; line-height: 1.55; }
+  .coach-results-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+  .coach-results-actions button { padding: 12px 22px; border-radius: 100px; font-weight: 600; font-size: 0.9rem; cursor: pointer; border: none; transition: all var(--transition); }
+  .coach-results-actions .primary { background: #fff; color: var(--q-blue); }
+  .coach-results-actions .primary:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0,0,0,0.15); }
+  .coach-results-actions .ghost { background: rgba(255,255,255,0.16); color: #fff; border: 1px solid rgba(255,255,255,0.35); }
+  .coach-results-actions .ghost:hover { background: rgba(255,255,255,0.26); }
+
+  @media (max-width: 640px) {
+    #page-coach { padding: 90px 12px 30px; }
+    .coach-header { padding: 20px 18px 14px; }
+    .coach-title { font-size: 1.35rem; }
+    .coach-chat { padding: 18px 16px; max-height: 52vh; }
+    .coach-input-row { padding: 12px 14px 14px; }
+    .coach-msg { max-width: 90%; }
+    .coach-results-card { padding: 22px 20px; }
+  }
+
   /* ── NAV ── */
   nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(250,250,250,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--border-light); }
   .nav-inner { max-width: 1200px; margin: 0 auto; padding: 0 40px; height: 72px; display: flex; align-items: center; justify-content: space-between; }
@@ -967,6 +1061,7 @@
 
       <a onclick="showPage('educators')">For Career Centers</a>
       <a onclick="showPage('coaching')">Coaching</a>
+      <a id="nav-coach-link" onclick="coachOpenFromNav()" style="display:none">AI Coach</a>
       <a class="nav-cta quiz-cta" onclick="showPage('quiz')">Take the Quiz</a>
     </div>
   </div>
@@ -1243,6 +1338,95 @@
 <div id="page-checkout" class="page"><div id="checkout-content"></div></div>
 <div id="page-confirmation" class="page"><div id="confirmation-content"></div></div>
 
+<!-- ───────────── AI COACH PAGE ───────────── -->
+<div id="page-coach" class="page">
+  <div class="coach-shell">
+    <div class="coach-header">
+      <div>
+        <div class="coach-eye">Your AI Career Coach</div>
+        <h2 class="coach-title" id="coach-title">Flightway Coach</h2>
+        <div class="coach-sub" id="coach-sub">Personalized for <span id="coach-user-email">your account</span>.</div>
+      </div>
+      <div class="coach-header-actions">
+        <button class="coach-gear" onclick="coachOpenSettings()" title="Settings">⚙</button>
+      </div>
+    </div>
+
+    <div class="coach-progress">
+      <div class="coach-progress-bar"><div class="coach-progress-fill" id="coach-progress-fill" style="width:0%"></div></div>
+      <div class="coach-progress-label" id="coach-progress-label">Exchange 0 / 5 — dossier refreshes after 5</div>
+    </div>
+
+    <div class="coach-chat" id="coach-chat">
+      <div class="coach-empty" id="coach-empty">
+        Say hi — your coach already knows your quiz results. Ask anything about your top industries, majors, or next steps.
+      </div>
+    </div>
+
+    <div class="coach-updating" id="coach-updating">
+      <div class="coach-spinner"></div>
+      <div>Updating dossier — your coach is committing what it learned to memory…</div>
+    </div>
+
+    <form class="coach-input-row" id="coach-input-row" onsubmit="event.preventDefault(); coachSend();">
+      <textarea id="coach-input" class="coach-input" rows="1" placeholder="Ask your coach anything…" maxlength="2000"></textarea>
+      <button type="submit" id="coach-send-btn" class="coach-send-btn">Send</button>
+    </form>
+    <div class="coach-error" id="coach-error"></div>
+  </div>
+
+  <!-- Settings sub-panel modal -->
+  <div class="coach-overlay" id="coach-settings-overlay" onclick="coachSettingsOverlayClick(event)">
+    <div class="coach-settings-modal">
+      <div class="coach-settings-head">
+        <div class="coach-settings-title">Coach Settings</div>
+        <button class="coach-x" onclick="coachCloseSettings()">×</button>
+      </div>
+      <div class="coach-settings-body">
+        <div class="coach-settings-row">
+          <div>
+            <div class="coach-settings-label">Your dossier</div>
+            <div class="coach-settings-help">This is the one-page profile your coach reads before every reply. You can edit it directly to fix mistakes or add things the coach should remember.</div>
+          </div>
+          <button class="coach-secondary-btn" onclick="coachLoadDossier()">↻ Reload</button>
+        </div>
+        <textarea id="coach-dossier-text" class="coach-dossier-text" spellcheck="false" placeholder="Loading dossier…"></textarea>
+        <div class="coach-dossier-actions">
+          <div class="coach-dossier-status" id="coach-dossier-status"></div>
+          <button class="coach-primary-btn" id="coach-dossier-save-btn" onclick="coachSaveDossier()">Save dossier</button>
+        </div>
+        <div class="coach-settings-divider"></div>
+        <div class="coach-settings-row">
+          <div>
+            <div class="coach-settings-label">Sign out</div>
+            <div class="coach-settings-help">Removes the account from this browser. Your dossier stays saved — sign back in with the same email any time.</div>
+          </div>
+          <button class="coach-danger-btn" onclick="coachSignOut()">Sign out</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Signup modal (opened from the results-page account card) -->
+<div class="coach-overlay" id="coach-signup-overlay" onclick="coachSignupOverlayClick(event)">
+  <div class="coach-signup-modal">
+    <div class="coach-settings-head">
+      <div class="coach-settings-title">Create your free coach account</div>
+      <button class="coach-x" onclick="coachCloseSignup()">×</button>
+    </div>
+    <div class="coach-settings-body">
+      <div class="coach-settings-help">Enter your email to save your results and unlock unlimited chats with your AI career coach. No password needed for now.</div>
+      <input type="email" id="coach-signup-email" class="coach-email-input" placeholder="you@example.com" autocomplete="email">
+      <div class="coach-error" id="coach-signup-error"></div>
+      <div class="coach-dossier-actions">
+        <div></div>
+        <button class="coach-primary-btn" id="coach-signup-btn" onclick="coachSignup()">Create account →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- QUIZ PAGE -->
 <div id="page-quiz" class="page">
   <div class="qz-wrap">
@@ -1300,6 +1484,7 @@
         <div class="qz-gate-sub">We've finished scoring your career profile. Enter your email and we'll send you a private link to your personalized results.</div>
         <div class="qz-gate-actions">
           <button class="qz-gate-primary" onclick="qzOpenEmailModal()">📧 &nbsp;Email me my results</button>
+          <button class="qz-gate-secondary" onclick="qzSkipEmailToResults()">Just show me my results →</button>
           <button class="qz-gate-secondary" onclick="showPage('home')">← Back to home</button>
         </div>
       </div>
@@ -3427,6 +3612,378 @@ if(document.readyState==='loading'){
   document.addEventListener('DOMContentLoaded', qzBootFromHash);
 } else {
   qzBootFromHash();
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   AI COACH MODULE
+   ─────────────
+   Handles: skip-email → results jump, account signup, results-page coach
+   card, Coach page chat UI, settings panel with dossier editor.
+   Server endpoints used (all in /Netlify/Functions/):
+     POST /account   { email, quizResults }   → { userId, alreadyExists }
+     POST /chat      { userId, message }      → { reply, exchangeCount, dossierUpdated }
+     GET  /dossier?userId=…                   → { dossier }
+     PUT  /dossier   { userId, dossier }      → { ok, dossier }
+   ═════════════════════════════════════════════════════════════════════════ */
+
+const COACH_ACCOUNT_EP = '/.netlify/functions/account';
+const COACH_CHAT_EP    = '/.netlify/functions/chat';
+const COACH_DOSSIER_EP = '/.netlify/functions/dossier';
+const COACH_RESET_AT   = 5;
+const COACH_LS_KEY     = 'fw_coach_user_v1';
+
+let coachUserId = null;
+let coachSending = false;
+
+function coachInit(){
+  try {
+    const raw = localStorage.getItem(COACH_LS_KEY);
+    if (raw) coachUserId = JSON.parse(raw).userId || null;
+  } catch(_) { coachUserId = null; }
+  coachUpdateNavLink();
+}
+
+function coachUpdateNavLink(){
+  const nav = document.getElementById('nav-coach-link');
+  if (nav) nav.style.display = coachUserId ? '' : 'none';
+}
+
+function coachSetUser(userId){
+  coachUserId = userId;
+  try { localStorage.setItem(COACH_LS_KEY, JSON.stringify({ userId })); } catch(_){}
+  coachUpdateNavLink();
+}
+
+function coachClearUser(){
+  coachUserId = null;
+  try { localStorage.removeItem(COACH_LS_KEY); } catch(_){}
+  coachUpdateNavLink();
+}
+
+/* ─── Skip-email & results-page integration ─────────────────────────── */
+
+// "Just show me my results" button — bypasses the email-send step entirely.
+function qzSkipEmailToResults(){
+  document.getElementById('qz-gate').classList.add('qz-hidden');
+  qzShowResults();
+}
+
+// Build a compact summary of the quiz results to seed the dossier.
+function coachExtractQuizResults(){
+  try {
+    const sc = (typeof qzComputeScores === 'function') ? qzComputeScores() : {};
+    const sorted = Object.entries(sc).sort((a,b)=>b[1]-a[1]).slice(0,4);
+    const topIndustries = sorted.map(([k]) => (window.QZ_IND && QZ_IND[k] && QZ_IND[k].name) || k);
+    const recommendedMajors = [];
+    sorted.forEach(([k]) => {
+      const ind = window.QZ_IND ? QZ_IND[k] : null;
+      if (ind && Array.isArray(ind.majors)) recommendedMajors.push(...ind.majors.slice(0,2));
+    });
+    const archetype = (typeof qzDetermineArchetype === 'function')
+      ? (qzDetermineArchetype().name || null) : null;
+    return {
+      topIndustries,
+      recommendedMajors: Array.from(new Set(recommendedMajors)).slice(0,6),
+      archetype,
+      school: (typeof qzSchool !== 'undefined' && qzSchool) ? qzSchool : null,
+      gpa: (typeof qzGpa !== 'undefined' && qzGpa !== null) ? qzGpa : null,
+      strengths: [],
+      weaknesses: [],
+    };
+  } catch(e){
+    console.warn('coach: failed to extract quiz results', e);
+    return {};
+  }
+}
+
+// Add the coach-account card to the bottom of the rendered results.
+function coachInjectResultsCard(){
+  const card = document.getElementById('qz-rcard');
+  if (!card) return;
+  if (card.querySelector('.coach-results-card')) return; // already injected
+  const wrap = document.createElement('div');
+  wrap.className = 'coach-results-card';
+  if (coachUserId){
+    wrap.innerHTML = `
+      <div class="coach-results-eye">Continue with your AI coach</div>
+      <div class="coach-results-title">You're already signed in as ${coachUserId}</div>
+      <div class="coach-results-sub">Pick up the conversation where you left off — your coach remembers your dossier across sessions.</div>
+      <div class="coach-results-actions">
+        <button class="primary" onclick="coachOpenFromNav()">Open coach →</button>
+        <button class="ghost" onclick="coachSignOut(true)">Use a different email</button>
+      </div>`;
+  } else {
+    wrap.innerHTML = `
+      <div class="coach-results-eye">Want more than the quiz?</div>
+      <div class="coach-results-title">Chat 1-on-1 with your AI career coach.</div>
+      <div class="coach-results-sub">It already knows your quiz results. Ask about specific majors, classes, internships — anything. Free, takes 10 seconds to set up.</div>
+      <div class="coach-results-actions">
+        <button class="primary" onclick="coachOpenSignup()">Create free account →</button>
+      </div>`;
+  }
+  card.appendChild(wrap);
+}
+
+// Wrap qzShowResults so the card is injected after the regular render.
+if (typeof qzShowResults === 'function') {
+  const _origQzShowResults = qzShowResults;
+  qzShowResults = function(){
+    _origQzShowResults.apply(this, arguments);
+    setTimeout(coachInjectResultsCard, 50);
+  };
+}
+
+/* ─── Signup modal ──────────────────────────────────────────────────── */
+
+function coachOpenSignup(){
+  const ov = document.getElementById('coach-signup-overlay');
+  document.getElementById('coach-signup-error').textContent = '';
+  const input = document.getElementById('coach-signup-email');
+  input.value = ''; input.disabled = false;
+  document.getElementById('coach-signup-btn').disabled = false;
+  ov.classList.add('vis');
+  setTimeout(()=>input.focus(), 80);
+}
+function coachCloseSignup(){
+  document.getElementById('coach-signup-overlay').classList.remove('vis');
+}
+function coachSignupOverlayClick(e){
+  if (e.target && e.target.id === 'coach-signup-overlay') coachCloseSignup();
+}
+
+async function coachSignup(){
+  const input = document.getElementById('coach-signup-email');
+  const errEl = document.getElementById('coach-signup-error');
+  const btn = document.getElementById('coach-signup-btn');
+  const email = (input.value||'').trim();
+  errEl.textContent = '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){
+    errEl.textContent = 'Please enter a valid email address.';
+    return;
+  }
+  input.disabled = true; btn.disabled = true; btn.textContent = 'Creating…';
+  try {
+    const resp = await fetch(COACH_ACCOUNT_EP, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, quizResults: coachExtractQuizResults() }),
+    });
+    const data = await resp.json().catch(()=>({}));
+    if (!resp.ok) throw new Error(data.error || 'Could not create account.');
+    coachSetUser(data.userId || email.toLowerCase());
+    coachCloseSignup();
+    coachOpenFromNav();
+  } catch(err){
+    errEl.textContent = err.message || 'Something went wrong.';
+    input.disabled = false; btn.disabled = false; btn.textContent = 'Create account →';
+  }
+}
+
+/* ─── Opening the Coach page ────────────────────────────────────────── */
+
+function coachOpenFromNav(){
+  if (!coachUserId){
+    coachOpenSignup();
+    return;
+  }
+  showPage('coach');
+  document.getElementById('coach-user-email').textContent = coachUserId;
+  document.getElementById('coach-empty').style.display = '';
+  // Reset visible chat — server controls real state.
+  const chatEl = document.getElementById('coach-chat');
+  Array.from(chatEl.querySelectorAll('.coach-msg, .coach-typing'))
+    .forEach(n => n.remove());
+  coachSetProgress(0);
+  document.getElementById('coach-error').textContent = '';
+  setTimeout(()=>{ document.getElementById('coach-input').focus(); }, 200);
+}
+
+function coachSetProgress(n){
+  const pct = Math.min(100, Math.round((n / COACH_RESET_AT) * 100));
+  document.getElementById('coach-progress-fill').style.width = pct + '%';
+  document.getElementById('coach-progress-label').textContent =
+    `Exchange ${n} / ${COACH_RESET_AT} — dossier refreshes after ${COACH_RESET_AT}`;
+}
+
+/* ─── Sending messages ──────────────────────────────────────────────── */
+
+function coachAppendMsg(role, text){
+  const empty = document.getElementById('coach-empty');
+  if (empty) empty.style.display = 'none';
+  const chat = document.getElementById('coach-chat');
+  const div = document.createElement('div');
+  div.className = 'coach-msg ' + role;
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
+}
+
+function coachShowTyping(){
+  const chat = document.getElementById('coach-chat');
+  const div = document.createElement('div');
+  div.className = 'coach-typing';
+  div.id = 'coach-typing-indicator';
+  div.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+function coachHideTyping(){
+  const t = document.getElementById('coach-typing-indicator');
+  if (t) t.remove();
+}
+
+async function coachSend(){
+  if (coachSending) return;
+  if (!coachUserId){ coachOpenSignup(); return; }
+  const input = document.getElementById('coach-input');
+  const errEl = document.getElementById('coach-error');
+  const msg = (input.value||'').trim();
+  errEl.textContent = '';
+  if (!msg) return;
+
+  coachSending = true;
+  input.value = '';
+  input.style.height = 'auto';
+  input.disabled = true;
+  document.getElementById('coach-send-btn').disabled = true;
+
+  coachAppendMsg('user', msg);
+  coachShowTyping();
+
+  try {
+    const resp = await fetch(COACH_CHAT_EP, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: coachUserId, message: msg }),
+    });
+    const data = await resp.json().catch(()=>({}));
+    coachHideTyping();
+    if (!resp.ok) throw new Error(data.error || 'Coach is offline. Try again in a moment.');
+
+    coachAppendMsg('assistant', data.reply || '(no reply)');
+    coachSetProgress(data.exchangeCount || 0);
+
+    // After the 5th exchange, server resets. Show the "updating dossier"
+    // banner for ~2s so the user can read the last reply, then wipe UI.
+    if (data.exchangeCount >= COACH_RESET_AT) {
+      const banner = document.getElementById('coach-updating');
+      banner.classList.add('vis');
+      banner.querySelector('div:last-child').textContent = data.dossierUpdated
+        ? 'Updating dossier — committing what your coach learned to memory…'
+        : 'Refreshing memory…';
+      setTimeout(() => {
+        banner.classList.remove('vis');
+        const chat = document.getElementById('coach-chat');
+        Array.from(chat.querySelectorAll('.coach-msg')).forEach(n => n.remove());
+        const sys = document.createElement('div');
+        sys.className = 'coach-msg system';
+        sys.textContent = data.dossierUpdated
+          ? '✓ Memory refreshed. Continue the conversation — your coach now knows what you discussed.'
+          : '↻ Conversation reset.';
+        chat.appendChild(sys);
+        coachSetProgress(0);
+      }, 2200);
+    }
+  } catch(err){
+    coachHideTyping();
+    errEl.textContent = err.message || 'Something went wrong.';
+  } finally {
+    coachSending = false;
+    input.disabled = false;
+    document.getElementById('coach-send-btn').disabled = false;
+    input.focus();
+  }
+}
+
+/* ─── Settings panel + dossier editor ───────────────────────────────── */
+
+function coachOpenSettings(){
+  if (!coachUserId) return;
+  document.getElementById('coach-settings-overlay').classList.add('vis');
+  coachLoadDossier();
+}
+function coachCloseSettings(){
+  document.getElementById('coach-settings-overlay').classList.remove('vis');
+}
+function coachSettingsOverlayClick(e){
+  if (e.target && e.target.id === 'coach-settings-overlay') coachCloseSettings();
+}
+
+async function coachLoadDossier(){
+  if (!coachUserId) return;
+  const ta = document.getElementById('coach-dossier-text');
+  const status = document.getElementById('coach-dossier-status');
+  ta.value = ''; ta.placeholder = 'Loading dossier…';
+  status.textContent = ''; status.className = 'coach-dossier-status';
+  try {
+    const resp = await fetch(`${COACH_DOSSIER_EP}?userId=${encodeURIComponent(coachUserId)}`);
+    const data = await resp.json().catch(()=>({}));
+    if (!resp.ok) throw new Error(data.error || 'Could not load dossier.');
+    ta.value = data.dossier || '';
+  } catch(err){
+    status.textContent = err.message || 'Load failed.';
+    status.className = 'coach-dossier-status err';
+  }
+}
+
+async function coachSaveDossier(){
+  if (!coachUserId) return;
+  const ta = document.getElementById('coach-dossier-text');
+  const status = document.getElementById('coach-dossier-status');
+  const btn = document.getElementById('coach-dossier-save-btn');
+  status.textContent = 'Saving…'; status.className = 'coach-dossier-status';
+  btn.disabled = true;
+  try {
+    const resp = await fetch(COACH_DOSSIER_EP, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: coachUserId, dossier: ta.value }),
+    });
+    const data = await resp.json().catch(()=>({}));
+    if (!resp.ok) throw new Error(data.error || 'Save failed.');
+    ta.value = data.dossier || ta.value;
+    status.textContent = '✓ Saved.'; status.className = 'coach-dossier-status ok';
+  } catch(err){
+    status.textContent = err.message || 'Save failed.';
+    status.className = 'coach-dossier-status err';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function coachSignOut(reopenSignup){
+  coachClearUser();
+  coachCloseSettings();
+  if (reopenSignup) {
+    coachOpenSignup();
+  } else {
+    showPage('home');
+  }
+}
+
+/* ─── Wire-up ───────────────────────────────────────────────────────── */
+
+// Auto-resize the chat textarea up to its max-height.
+document.addEventListener('input', (e) => {
+  if (e.target && e.target.id === 'coach-input') {
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(140, e.target.scrollHeight) + 'px';
+  }
+});
+
+// Submit on Enter, newline on Shift+Enter.
+document.addEventListener('keydown', (e) => {
+  if (e.target && e.target.id === 'coach-input' && e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    coachSend();
+  }
+});
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', coachInit);
+} else {
+  coachInit();
 }
 </script>
 </body>
