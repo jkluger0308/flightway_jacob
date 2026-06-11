@@ -49,6 +49,11 @@
   .coach-msg.user { align-self: flex-end; background: var(--q-blue); color: #fff; border-bottom-right-radius: 6px; }
   .coach-msg.assistant { align-self: flex-start; background: var(--surface); color: var(--text); border: 1px solid var(--border-light); border-bottom-left-radius: 6px; }
   .coach-msg.system { align-self: center; background: transparent; color: var(--text-tertiary); font-size: 0.78rem; font-style: italic; padding: 4px 12px; }
+  .coach-msg.assistant p { margin: 0 0 8px; }
+  .coach-msg.assistant p:last-child { margin-bottom: 0; }
+  .coach-msg.assistant ol, .coach-msg.assistant ul { margin: 4px 0 8px; padding-left: 22px; }
+  .coach-msg.assistant li { margin-bottom: 4px; }
+  .coach-msg.assistant strong { font-weight: 600; }
   .coach-typing { align-self: flex-start; background: var(--surface); border: 1px solid var(--border-light); color: var(--text-secondary); padding: 12px 16px; border-radius: 16px; border-bottom-left-radius: 6px; font-size: 0.88rem; display: inline-flex; gap: 6px; align-items: center; }
   .coach-typing .dot { width: 6px; height: 6px; background: var(--text-tertiary); border-radius: 50%; animation: coach-pulse 1.2s infinite ease-in-out; }
   .coach-typing .dot:nth-child(2) { animation-delay: 0.15s; }
@@ -1063,7 +1068,7 @@
 
       <a onclick="showPage('educators')">For Career Centers</a>
       <a onclick="showPage('coaching')">Coaching</a>
-      <a id="nav-coach-link" onclick="coachOpenFromNav()" style="display:none">AI Coach</a>
+      <a id="nav-coach-link" onclick="coachOpenFromNav()">AI Coach</a>
       <a class="nav-cta quiz-cta" onclick="showPage('quiz')">Take the Quiz</a>
     </div>
   </div>
@@ -1082,6 +1087,20 @@
       <span style="display:inline-flex;align-items:center;gap:5px"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> 14 interactive input types</span>
       <span style="display:inline-flex;align-items:center;gap:5px"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg> 12 industries matched</span>
       <span style="display:inline-flex;align-items:center;gap:5px"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> School-specific majors</span>
+    </div>
+  </section>
+
+  <section style="padding-top: 20px; padding-bottom: 10px;">
+    <div class="section-inner">
+      <div class="coach-results-card fade-in" style="margin: 0;">
+        <div class="coach-results-eye">New &middot; AI Career Coach</div>
+        <div class="coach-results-title">Your results are just the beginning. Meet your AI coach.</div>
+        <div class="coach-results-sub">After the quiz, chat 1-on-1 with an AI coach that knows your results, remembers you between sessions, and searches the web to answer questions about real majors, programs, and deadlines.</div>
+        <div class="coach-results-actions">
+          <button class="primary" onclick="coachOpenFromNav()">Chat with your coach &rarr;</button>
+          <button class="ghost" onclick="showPage('quiz')">Take the quiz first</button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -1488,7 +1507,7 @@
       <div class="qz-gate">
         <div class="qz-gate-emoji">📬</div>
         <div class="qz-gate-title">Your results are ready.</div>
-        <div class="qz-gate-sub">We've finished scoring your career profile. Enter your email and we'll send you a private link to your personalized results.</div>
+        <div class="qz-gate-sub">We've finished scoring your career profile. Enter your email and we'll send you a private link to your personalized results — then meet your <strong>AI career coach</strong>, who knows your results and chats with you 1-on-1.</div>
         <div class="qz-gate-actions">
           <button class="qz-gate-primary" onclick="qzOpenEmailModal()">📧 &nbsp;Email me my results</button>
           <button class="qz-gate-secondary" onclick="qzSkipEmailToResults()">Just show me my results →</button>
@@ -3656,8 +3675,8 @@ function coachInit(){
 }
 
 function coachUpdateNavLink(){
-  const nav = document.getElementById('nav-coach-link');
-  if (nav) nav.style.display = coachUserId ? '' : 'none';
+  // The AI Coach nav link is always visible. coachOpenFromNav() routes
+  // users without an account through the quiz first.
 }
 
 function coachSetUser(userId){
@@ -3955,7 +3974,21 @@ async function coachSignup(){
 
 function coachOpenFromNav(){
   if (!coachUserId){
-    coachOpenSignup();
+    // No account yet. The dossier is seeded from quiz results, so the user
+    // must complete the quiz first. If they already have fresh results in
+    // memory (just finished), go straight to signup; otherwise route to quiz.
+    const hasResults = (() => {
+      try {
+        const sc = (typeof qzComputeScores === 'function') ? qzComputeScores() : {};
+        return Object.values(sc).some(v => v > 0);
+      } catch(_) { return false; }
+    })();
+    if (hasResults) {
+      coachOpenSignup();
+    } else {
+      alert('Take the career quiz first — your AI coach is personalized from your results. It takes about 6 minutes (or use the dev skip button).');
+      showPage('quiz');
+    }
     return;
   }
   showPage('coach');
@@ -3979,13 +4012,50 @@ function coachSetProgress(n){
 
 /* ─── Sending messages ──────────────────────────────────────────────── */
 
+// Minimal, safe markdown renderer for assistant messages. Escapes all HTML
+// first, then converts the small subset the coach is told to use: **bold**,
+// *italic*, and simple "1." / "-" lists. No raw-HTML injection possible.
+function coachRenderMarkdown(text){
+  const esc = String(text)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const lines = esc.split('\n');
+  let html = '', inList = null; // 'ol' | 'ul' | null
+  const closeList = () => { if (inList){ html += `</${inList}>`; inList = null; } };
+  const inline = (s) => s
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+  for (const raw of lines){
+    const line = raw.trimEnd();
+    const ol = line.match(/^\s*(\d+)[.)]\s+(.*)$/);
+    const ul = line.match(/^\s*[-•]\s+(.*)$/);
+    if (ol){
+      if (inList !== 'ol'){ closeList(); html += '<ol>'; inList = 'ol'; }
+      html += `<li>${inline(ol[2])}</li>`;
+    } else if (ul){
+      if (inList !== 'ul'){ closeList(); html += '<ul>'; inList = 'ul'; }
+      html += `<li>${inline(ul[1])}</li>`;
+    } else if (line.trim() === ''){
+      closeList();
+    } else {
+      closeList();
+      html += `<p>${inline(line)}</p>`;
+    }
+  }
+  closeList();
+  return html;
+}
+
 function coachAppendMsg(role, text){
   const empty = document.getElementById('coach-empty');
   if (empty) empty.style.display = 'none';
   const chat = document.getElementById('coach-chat');
   const div = document.createElement('div');
   div.className = 'coach-msg ' + role;
-  div.textContent = text;
+  if (role === 'assistant') {
+    div.innerHTML = coachRenderMarkdown(text);
+  } else {
+    div.textContent = text;
+  }
   chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
   return div;
@@ -4033,12 +4103,21 @@ async function coachSend(){
     coachHideTyping();
     if (!resp.ok) throw new Error(data.error || 'Coach is offline. Try again in a moment.');
 
-    coachAppendMsg('assistant', data.reply || '(no reply)');
+    const replyEl = coachAppendMsg('assistant', data.reply || '(no reply)');
     coachSetProgress(data.exchangeCount || 0);
 
-    // After the 5th exchange, server resets. Show the "updating dossier"
-    // banner for ~2s so the user can read the last reply, then wipe UI.
-    if (data.exchangeCount >= COACH_RESET_AT) {
+    if (data.manualUpdate) {
+      // "Update the dossier" command: brief banner, no reset.
+      const banner = document.getElementById('coach-updating');
+      banner.classList.add('vis');
+      banner.querySelector('div:last-child').textContent = data.dossierUpdated
+        ? 'Updating dossier…'
+        : 'Dossier unchanged.';
+      setTimeout(() => banner.classList.remove('vis'), 1800);
+    } else if (data.reset) {
+      // 5th exchange: server updated the dossier and reset, carrying the
+      // last assistant reply into the new conversation. Clear all messages
+      // EXCEPT that final reply so the user keeps their place.
       const banner = document.getElementById('coach-updating');
       banner.classList.add('vis');
       banner.querySelector('div:last-child').textContent = data.dossierUpdated
@@ -4047,13 +4126,15 @@ async function coachSend(){
       setTimeout(() => {
         banner.classList.remove('vis');
         const chat = document.getElementById('coach-chat');
-        Array.from(chat.querySelectorAll('.coach-msg')).forEach(n => n.remove());
+        Array.from(chat.querySelectorAll('.coach-msg')).forEach(n => {
+          if (n !== replyEl) n.remove();
+        });
         const sys = document.createElement('div');
         sys.className = 'coach-msg system';
         sys.textContent = data.dossierUpdated
-          ? '✓ Memory refreshed. Continue the conversation — your coach now knows what you discussed.'
-          : '↻ Conversation reset.';
-        chat.appendChild(sys);
+          ? '✓ Memory refreshed — your dossier was updated. The reply above carries into this new conversation.'
+          : '↻ Conversation reset. The reply above carries over.';
+        chat.insertBefore(sys, replyEl);
         coachSetProgress(0);
       }, 2200);
     }
