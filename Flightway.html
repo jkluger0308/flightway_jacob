@@ -3590,6 +3590,11 @@ async function qzSubmitEmail(){
 // to the results screen (this is the link sent in the email).
 function qzBootFromHash(){
   const h = window.location.hash || '';
+  // #quiz → jump straight to the quiz page (used by links from index.html).
+  if (h === '#quiz') {
+    if (typeof showPage === 'function') showPage('quiz');
+    return true;
+  }
   const m = h.match(/^#r=([A-Za-z0-9_-]+)$/);
   if(!m) return false;
   try{

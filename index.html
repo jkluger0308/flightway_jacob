@@ -389,7 +389,7 @@
     <button class="back-btn" onclick="showPage('home')">&larr; Back</button>
     <h1 style="font-size: clamp(2.4rem, 5vw, 3.5rem);">Find the career you were made for.</h1>
     <p>Stop guessing. Our AI-powered quiz, in-depth career guides, and 1-on-1 coaching with industry experts help you move forward with clarity and confidence.</p>
-    <a class="cta-btn" href="#">Take the Career Quiz</a>
+    <a class="cta-btn" href="Flightway.html#quiz">Take the Career Quiz</a>
   </section>
   <section class="quiz-section">
     <div class="section-inner">
@@ -459,7 +459,7 @@
     <div class="section-inner">
       <h2 class="section-title fade-in" style="text-align:center;">Ready to find your career?</h2>
       <p class="section-desc fade-in" style="text-align:center;">It starts with a 10-minute quiz. No fluff &mdash; just clarity.</p>
-      <div class="fade-in"><a class="cta-btn" href="#">Take the Quiz &mdash; Free</a><a class="cta-btn cta-btn-outline" href="#">Browse Career Guides</a></div>
+      <div class="fade-in"><a class="cta-btn" href="Flightway.html#quiz">Take the Quiz &mdash; Free</a><a class="cta-btn cta-btn-outline" href="#">Browse Career Guides</a></div>
     </div>
   </section>
 </div>
@@ -831,7 +831,7 @@ function showCareer(key, backTo) {
     <section><div class="section-inner"><div class="section-tag fade-in">A Day in the Life</div><h2 class="section-title fade-in">What a typical day looks like</h2><div class="timeline fade-in">${c.dayInLife.map(i=>`<div class="timeline-item"><div class="timeline-time">${i.time}</div><div class="timeline-content"><h5>${i.title}</h5><p>${i.desc}</p></div></div>`).join('')}</div></div></section>
     <section style="background:var(--surface)"><div class="section-inner"><div class="section-tag fade-in">Skills Required</div><h2 class="section-title fade-in">What you need to learn</h2><div class="skills-pills fade-in">${c.coreSkills.map(s=>`<span class="skill-pill core">${s}</span>`).join('')}${c.otherSkills.map(s=>`<span class="skill-pill">${s}</span>`).join('')}</div></div></section>
     <section><div class="section-inner"><div class="section-tag fade-in">AI &amp; Automation Outlook</div><h2 class="section-title fade-in">How AI will shape this role</h2><div class="ai-outlook-card fade-in"><h4>Overall automation risk: ${c.aiAutomation}%</h4><p>${c.aiOutlook}</p><div class="ai-bar-big"><div class="ai-bar-big-fill ${aiBarClass}" style="width:0%" data-target="${c.aiAutomation}"></div></div><div class="ai-bar-labels"><span>Low risk</span><span>High risk</span></div><div class="ai-tasks">${c.aiTasks.map(t=>`<div class="ai-task-row"><span class="ai-task-label">${t.task}</span><span class="ai-task-risk risk-${t.risk}">${t.risk==='low'?'Low risk':t.risk==='med'?'Moderate':'High risk'}</span></div>`).join('')}</div></div></div></section>
-    <section class="cta-section"><div class="section-inner"><h2 class="section-title fade-in" style="text-align:center">Interested in ${c.title}?</h2><div class="fade-in"><a class="cta-btn" href="#">Take the Career Quiz</a><a class="cta-btn cta-btn-outline" onclick="showPage('coaching')">Book a Coach</a></div></div></section>`;
+    <section class="cta-section"><div class="section-inner"><h2 class="section-title fade-in" style="text-align:center">Interested in ${c.title}?</h2><div class="fade-in"><a class="cta-btn" href="Flightway.html#quiz">Take the Career Quiz</a><a class="cta-btn cta-btn-outline" onclick="showPage('coaching')">Book a Coach</a></div></div></section>`;
   showPage('career');
   setTimeout(()=>{document.querySelectorAll('.scale-bar-fill[data-target],.ai-bar-big-fill[data-target]').forEach(b=>{b.style.width=b.dataset.target+'%'});},400);
 }
