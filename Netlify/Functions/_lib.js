@@ -107,7 +107,11 @@ function _storeOpts(name) {
     e._userFacing = true;
     throw e;
   }
-  const opts = { name, consistency: 'strong' };
+  // Note: default (eventual) consistency. 'strong' requires an
+  // uncachedEdgeURL that the Lambda-compatibility Blobs context doesn't
+  // provide, and it isn't needed here — each user only touches their own
+  // keys with seconds between requests.
+  const opts = { name };
   const siteID = process.env.NETLIFY_SITE_ID || process.env.SITE_ID;
   const token =
     process.env.NETLIFY_BLOBS_TOKEN ||
