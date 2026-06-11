@@ -7,7 +7,7 @@
 
 [build]
   publish        = "."
-  functions      = "netlify/functions"
+  functions      = "Netlify/Functions"
 
 # Optional: serve flightway.html at the root so the email-link URLs
 # look like https://your-site.netlify.app/#r=… instead of
