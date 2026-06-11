@@ -67,7 +67,7 @@
   .coach-send-btn { padding: 12px 22px; background: var(--q-blue); color: #fff; border: none; border-radius: 100px; font-weight: 600; font-size: 0.92rem; cursor: pointer; transition: all var(--transition); white-space: nowrap; }
   .coach-send-btn:hover:not(:disabled) { background: var(--accent); transform: translateY(-1px); }
   .coach-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .coach-error { color: var(--q-red); font-size: 0.82rem; padding: 0 28px 14px; min-height: 1.2em; }
+  .coach-error { color: var(--q-red); font-size: 0.82rem; padding: 0 28px 14px; min-height: 1.2em; word-break: break-word; line-height: 1.45; }
 
   /* Coach modals (settings, signup) */
   .coach-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 200; display: none; align-items: center; justify-content: center; padding: 24px; opacity: 0; transition: opacity 0.2s ease; }
@@ -3768,18 +3768,46 @@ async function coachSignup(){
   }
   input.disabled = true; btn.disabled = true; btn.textContent = 'Creating…';
   try {
-    const resp = await fetch(COACH_ACCOUNT_EP, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, quizResults: coachExtractQuizResults() }),
-    });
-    const data = await resp.json().catch(()=>({}));
-    if (!resp.ok) throw new Error(data.error || 'Could not create account.');
-    coachSetUser(data.userId || email.toLowerCase());
+    let resp;
+    try {
+      resp = await fetch(COACH_ACCOUNT_EP, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, quizResults: coachExtractQuizResults() }),
+      });
+    } catch (netErr) {
+      throw new Error(`Network error reaching ${COACH_ACCOUNT_EP}: ${netErr.message || netErr}. Check your internet connection.`);
+    }
+
+    const rawBody = await resp.text();
+    let data = {};
+    try { data = rawBody ? JSON.parse(rawBody) : {}; } catch (_) { /* non-JSON response */ }
+
+    if (!resp.ok) {
+      // Show whatever the server actually said. If the body is HTML (e.g. a
+      // Netlify 404 page), surface the status + a snippet so we can tell
+      // the function isn't reachable vs. a real handler error.
+      const detail = (data && data.error)
+        || (rawBody ? rawBody.slice(0, 240).replace(/\s+/g,' ').trim() : '(empty response body)');
+      const tip = resp.status === 404
+        ? ' — the Netlify Function is not deployed at this URL. Did the latest deploy succeed?'
+        : resp.status === 502 || resp.status === 504
+          ? ' — the function timed out or crashed. Check the Netlify Functions log.'
+          : '';
+      throw new Error(`HTTP ${resp.status} from /account: ${detail}${tip}`);
+    }
+
+    if (!data.userId) {
+      throw new Error(`Server returned 200 but no userId. Raw body: ${rawBody.slice(0,200)}`);
+    }
+
+    coachSetUser(data.userId);
     coachCloseSignup();
     coachOpenFromNav();
   } catch(err){
-    errEl.textContent = err.message || 'Something went wrong.';
+    const msg = (err && err.message) || String(err) || 'Something went wrong.';
+    errEl.textContent = msg;
+    console.error('coachSignup failed:', err);
     input.disabled = false; btn.disabled = false; btn.textContent = 'Create account →';
   }
 }

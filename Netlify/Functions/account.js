@@ -57,7 +57,13 @@ exports.handler = async (event) => {
     await saveDossier(userId, seed);
     return json(200, { userId, alreadyExists: false }, origin);
   } catch (err) {
-    console.error('account create failed', err);
-    return json(500, { error: 'Could not create account. Please try again.' }, origin);
+    console.error('account create failed', err && err.stack ? err.stack : err);
+    // Surface the underlying error message so the user (and the dev console)
+    // can see what actually went wrong. _userFacing errors come from _lib.js
+    // and are safe to show as-is; everything else gets a generic prefix.
+    const msg = err && err._userFacing
+      ? err.message
+      : `Could not create account: ${(err && err.message) || 'unknown server error'}.`;
+    return json(500, { error: msg }, origin);
   }
 };

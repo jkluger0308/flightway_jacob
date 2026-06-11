@@ -38,8 +38,11 @@ exports.handler = async (event) => {
       if (!dossier) return json(404, { error: 'No dossier for this user yet.' }, origin);
       return json(200, { dossier }, origin);
     } catch (err) {
-      console.error('dossier GET failed', err);
-      return json(500, { error: 'Could not load dossier.' }, origin);
+      console.error('dossier GET failed', err && err.stack ? err.stack : err);
+      const msg = err && err._userFacing
+        ? err.message
+        : `Could not load dossier: ${(err && err.message) || 'unknown server error'}.`;
+      return json(500, { error: msg }, origin);
     }
   }
 
@@ -69,8 +72,11 @@ exports.handler = async (event) => {
       const saved = await saveDossier(email, text);
       return json(200, { ok: true, dossier: saved }, origin);
     } catch (err) {
-      console.error('dossier PUT failed', err);
-      return json(500, { error: 'Could not save dossier.' }, origin);
+      console.error('dossier PUT failed', err && err.stack ? err.stack : err);
+      const msg = err && err._userFacing
+        ? err.message
+        : `Could not save dossier: ${(err && err.message) || 'unknown server error'}.`;
+      return json(500, { error: msg }, origin);
     }
   }
 

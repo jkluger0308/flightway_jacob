@@ -258,11 +258,10 @@ exports.handler = async (event) => {
       origin,
     );
   } catch (err) {
-    console.error('chat handler failed', err);
-    return json(
-      500,
-      { error: (err && err.message) || 'Chat request failed.' },
-      origin,
-    );
+    console.error('chat handler failed', err && err.stack ? err.stack : err);
+    const msg = err && err._userFacing
+      ? err.message
+      : (err && err.message) || 'Chat request failed.';
+    return json(500, { error: msg }, origin);
   }
 };

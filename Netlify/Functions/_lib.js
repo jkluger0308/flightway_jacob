@@ -4,7 +4,16 @@
 // and the dossier seed template in one place so the per-endpoint files
 // stay short and consistent.
 
-const { getStore } = require('@netlify/blobs');
+// Load @netlify/blobs lazily and surface a clear error if it's missing.
+// (If npm install didn't run on Netlify, the require itself throws and
+// without this wrapper the user just sees "Could not create account.")
+let _getStore = null;
+let _blobsLoadError = null;
+try {
+  _getStore = require('@netlify/blobs').getStore;
+} catch (err) {
+  _blobsLoadError = err;
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -66,12 +75,51 @@ function userIdFromEmail(email) {
 
 // Netlify Blobs stores. We use two logical stores so keys can't collide
 // even if one schema changes shape later.
+//
+// In classic (v1 / lambda-style) functions, @netlify/blobs needs explicit
+// siteID + token credentials when the auto-context isn't injected.
+// Netlify exposes these as NETLIFY_SITE_ID / NETLIFY_BLOBS_TOKEN (or via
+// the legacy BLOB_READ_WRITE_TOKEN env var). We pass them when available.
+function _storeOpts(name) {
+  if (_blobsLoadError) {
+    const e = new Error(
+      `@netlify/blobs is not installed. Make sure package.json is committed and Netlify ran "npm install" on the latest deploy. Underlying error: ${_blobsLoadError.message}`
+    );
+    e._userFacing = true;
+    throw e;
+  }
+  const opts = { name, consistency: 'strong' };
+  const siteID = process.env.NETLIFY_SITE_ID || process.env.SITE_ID;
+  const token =
+    process.env.NETLIFY_BLOBS_TOKEN ||
+    process.env.BLOB_READ_WRITE_TOKEN ||
+    process.env.NETLIFY_AUTH_TOKEN;
+  if (siteID && token) {
+    opts.siteID = siteID;
+    opts.token = token;
+  }
+  return opts;
+}
+
+function _safeGetStore(name) {
+  const opts = _storeOpts(name);
+  try {
+    return _getStore(opts);
+  } catch (err) {
+    const e = new Error(
+      `Netlify Blobs is not available (store "${name}"). On the deployed site this usually means Blobs has not been enabled for the site, or the function is running outside a Netlify request context. Underlying error: ${err.message}`
+    );
+    e._userFacing = true;
+    throw e;
+  }
+}
+
 function dossierStore() {
-  return getStore({ name: 'coach-dossiers', consistency: 'strong' });
+  return _safeGetStore('coach-dossiers');
 }
 
 function chatStore() {
-  return getStore({ name: 'coach-chats', consistency: 'strong' });
+  return _safeGetStore('coach-chats');
 }
 
 // Returns the dossier text for a user, or null if none exists yet.
