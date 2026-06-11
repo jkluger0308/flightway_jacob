@@ -18,8 +18,10 @@
 //
 // Environment variables (set in Netlify Site settings → Environment variables):
 //   GEMINI_API_KEY   required. Get one free at https://aistudio.google.com/.
-//   GEMINI_MODEL     optional, defaults to "gemini-2.5-flash".
-//   ALLOWED_ORIGIN   optional, defaults to "*".
+//   GEMINI_MODEL          optional, defaults to "gemini-2.5-flash-lite".
+//   GEMINI_FALLBACK_MODEL optional, defaults to "gemini-2.0-flash".
+//   GEMINI_USE_SEARCH     optional: "auto" (default), "always", or "never".
+//   ALLOWED_ORIGIN        optional, defaults to "*".
 
 const {
   json,
@@ -39,7 +41,10 @@ const {
   connectBlobs,
 } = require('./_lib');
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+// flash-lite has the most generous free-tier RPM (≈30/min vs ≈15 for flash).
+// Override with GEMINI_MODEL in Netlify env vars if you enable billing.
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.0-flash';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 // Hard limit on a single user message to prevent prompt-injection floods
@@ -66,26 +71,30 @@ function sleep(ms) {
   return new Promise((res) => setTimeout(res, ms));
 }
 
-// 503 = model overloaded, 429 = rate limit. Both are transient on the free
-// tier; retry with backoff before giving up. Total worst-case added latency
-// is ~3.5s, well within the function timeout.
-const RETRYABLE_STATUS = new Set([429, 500, 503]);
-const RETRY_DELAYS_MS = [600, 1300, 2600];
+// Only retry transient overload errors — NOT 429. Retrying a rate-limit
+// hammers the API (4 rapid calls in ~4s) and makes the problem worse.
+const RETRYABLE_STATUS = new Set([500, 503]);
+const RETRY_DELAYS_MS = [800, 2000];
 
-async function callGemini({ systemInstruction, contents, temperature = 0.7, useSearch = false }) {
-  if (!GEMINI_API_KEY) {
-    throw new Error(
-      'GEMINI_API_KEY is not configured. Add it in Netlify Site settings → Environment variables and redeploy.',
-    );
-  }
+// Enable web search only when the message likely needs live facts. Search
+// on every message burns quota faster and is stricter on the free tier.
+// Set GEMINI_USE_SEARCH=always in Netlify to force search on every reply.
+function needsWebSearch(message) {
+  const mode = (process.env.GEMINI_USE_SEARCH || 'auto').toLowerCase();
+  if (mode === 'always') return true;
+  if (mode === 'never') return false;
+  const m = String(message || '').toLowerCase();
+  return /\b(deadline|application|apply|tuition|salary|requirements|catalog|course list|look up|search for|find out|current|latest|website|how much|when is|what (are|is) the)\b/.test(m)
+    || /\b(major|minor|program|internship|recruiting)\b.{0,40}\b(at|for)\b/.test(m);
+}
 
+function buildGeminiBody({ systemInstruction, contents, temperature, useSearch }) {
   const body = {
     systemInstruction: { parts: [{ text: systemInstruction }] },
     contents,
     generationConfig: {
       temperature,
-      maxOutputTokens: 1024,
-      responseMimeType: 'text/plain',
+      maxOutputTokens: 800,
     },
     safetySettings: [
       { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
@@ -94,58 +103,92 @@ async function callGemini({ systemInstruction, contents, temperature = 0.7, useS
       { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
     ],
   };
-
-  // Google Search grounding lets the model pull live web results (course
-  // catalogs, program deadlines, salaries). Free for 5,000 prompts/month
-  // on current Gemini models. Only enabled for chat replies, not dossier
-  // merges (those must not invent new facts from the web).
+  // responseMimeType is incompatible with tools on some models; only set
+  // for plain (non-search) calls.
+  if (!useSearch) {
+    body.generationConfig.responseMimeType = 'text/plain';
+  }
   if (useSearch) {
     body.tools = [{ google_search: {} }];
   }
+  return body;
+}
 
+async function callGeminiOnce({ model, systemInstruction, contents, temperature, useSearch }) {
+  const body = buildGeminiBody({ systemInstruction, contents, temperature, useSearch });
+  const resp = await fetch(geminiUrl(model), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const detail = resp.ok ? '' : await resp.text();
+  if (!resp.ok) {
+    console.error(`Gemini API error [${model}]`, resp.status, detail.slice(0, 500));
+    const err = Object.assign(new Error(`Gemini ${resp.status}`), { status: resp.status, detail });
+    throw err;
+  }
+  const data = await resp.json();
+  const text =
+    data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('').trim() || '';
+  if (!text) throw new Error('Gemini returned an empty response.');
+  return text;
+}
+
+async function callGeminiWithRetries({ model, systemInstruction, contents, temperature, useSearch }) {
   let lastErr = null;
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     if (attempt > 0) await sleep(RETRY_DELAYS_MS[attempt - 1]);
-
-    let resp;
     try {
-      resp = await fetch(geminiUrl(GEMINI_MODEL), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-    } catch (netErr) {
-      lastErr = netErr;
-      continue; // network blip — retry
+      return await callGeminiOnce({ model, systemInstruction, contents, temperature, useSearch });
+    } catch (err) {
+      lastErr = err;
+      if (err.status === 429) throw err; // don't retry rate limits
+      if (!RETRYABLE_STATUS.has(err.status)) throw err;
     }
+  }
+  throw lastErr || new Error('Gemini request failed.');
+}
 
-    if (!resp.ok) {
-      const detail = await resp.text();
-      console.error(`Gemini API error (attempt ${attempt + 1})`, resp.status, detail.slice(0, 500));
-      if (RETRYABLE_STATUS.has(resp.status)) {
-        lastErr = Object.assign(new Error(`Gemini ${resp.status}`), { status: resp.status });
-        continue;
-      }
-      throw new Error(`Gemini API returned ${resp.status}.`);
-    }
-
-    const data = await resp.json();
-    const text =
-      data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('').trim() || '';
-    if (!text) {
-      lastErr = new Error('Gemini returned an empty response.');
-      continue; // occasionally transient; retry
-    }
-    return text;
+async function callGemini({ systemInstruction, contents, temperature = 0.7, useSearch = false }) {
+  if (!GEMINI_API_KEY) {
+    throw new Error(
+      'GEMINI_API_KEY is not configured. Add it in Netlify Site settings → Environment variables and redeploy.',
+    );
   }
 
-  // All retries exhausted — return a friendly, actionable message.
-  const status = lastErr && lastErr.status;
-  const friendly = status === 429
-    ? 'The coach is receiving too many requests right now (free-tier rate limit). Wait about a minute and try again.'
-    : status === 503
-      ? "Google's AI service is briefly overloaded. Your message wasn't lost — try sending it again in a few seconds."
-      : `The AI service is temporarily unavailable (${(lastErr && lastErr.message) || 'unknown error'}). Please try again.`;
+  const attempts = [
+    { model: GEMINI_MODEL, useSearch },
+  ];
+  // On rate limit or overload, fall back to a lighter model without search.
+  if (GEMINI_FALLBACK_MODEL && GEMINI_FALLBACK_MODEL !== GEMINI_MODEL) {
+    attempts.push({ model: GEMINI_FALLBACK_MODEL, useSearch: false });
+  }
+
+  let lastStatus = null;
+  for (const { model, useSearch: search } of attempts) {
+    try {
+      return await callGeminiWithRetries({
+        model,
+        systemInstruction,
+        contents,
+        temperature,
+        useSearch: search,
+      });
+    } catch (err) {
+      lastStatus = err.status || lastStatus;
+      if (err.status !== 429 && err.status !== 503) throw err;
+      console.warn(`Gemini [${model}] failed (${err.status}), trying next option…`);
+    }
+  }
+
+  const friendly = lastStatus === 429
+    ? 'Google rate-limited this API key (free tier: ~15–30 requests/min). '
+      + 'Wait 60 seconds and try again. If this happens on your very first message, '
+      + 'open aistudio.google.com → your project → check that the API has quota (billing '
+      + 'may need to be linked even for free usage). You can also set GEMINI_MODEL=gemini-2.5-flash-lite in Netlify env vars.'
+    : lastStatus === 503
+      ? "Google's AI service is briefly overloaded. Your message wasn't lost — try again in a few seconds."
+      : `The AI service is temporarily unavailable. Please try again.`;
   const e = new Error(friendly);
   e._userFacing = true;
   throw e;
@@ -366,14 +409,14 @@ exports.handler = async (event) => {
       );
     }
 
-    // 3. Append user message and get the assistant reply (with live
-    //    Google Search grounding enabled).
+    // 3. Append user message and get the assistant reply. Web search is
+    //    enabled only when the message looks like it needs live facts.
     chat.messages.push({ role: 'user', content: userMessage });
     const reply = await callGemini({
       systemInstruction: chatSystemPrompt(dossier),
       contents: toGeminiContents(chat.messages),
       temperature: 0.7,
-      useSearch: true,
+      useSearch: needsWebSearch(userMessage),
     });
 
     // 4. Append reply + bump exchange count.
