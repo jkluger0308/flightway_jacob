@@ -8,11 +8,30 @@
 // (If npm install didn't run on Netlify, the require itself throws and
 // without this wrapper the user just sees "Could not create account.")
 let _getStore = null;
+let _connectLambda = null;
 let _blobsLoadError = null;
 try {
-  _getStore = require('@netlify/blobs').getStore;
+  const blobs = require('@netlify/blobs');
+  _getStore = blobs.getStore;
+  _connectLambda = blobs.connectLambda;
 } catch (err) {
   _blobsLoadError = err;
+}
+
+// Our functions use the classic `exports.handler` (Lambda compatibility)
+// syntax, where Netlify does NOT auto-configure the Blobs environment —
+// that only happens for v2 (`export default`) functions. connectLambda(event)
+// reads the Blobs credentials that Netlify packs into the lambda event and
+// configures the environment. It must be called before getStore().
+// See: https://www.npmjs.com/package/@netlify/blobs ("Lambda compatibility mode")
+function connectBlobs(event) {
+  if (_blobsLoadError || typeof _connectLambda !== 'function') return;
+  try {
+    _connectLambda(event);
+  } catch (err) {
+    // Non-fatal: getStore() will throw a clearer error if config is missing.
+    console.warn('connectLambda failed:', err.message);
+  }
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -107,7 +126,7 @@ function _safeGetStore(name) {
     return _getStore(opts);
   } catch (err) {
     const e = new Error(
-      `Netlify Blobs is not available (store "${name}"). On the deployed site this usually means Blobs has not been enabled for the site, or the function is running outside a Netlify request context. Underlying error: ${err.message}`
+      `Netlify Blobs is not available (store "${name}"). The handler must call connectBlobs(event) before using storage (Lambda-compatibility functions don't get Blobs auto-configured). Underlying error: ${err.message}`
     );
     e._userFacing = true;
     throw e;
@@ -199,6 +218,7 @@ module.exports = {
   DOSSIER_VERSION_MARKER,
   DOSSIER_MAX_CHARS,
   EXCHANGE_RESET_AT,
+  connectBlobs,
   cors,
   json,
   originFromEnv,

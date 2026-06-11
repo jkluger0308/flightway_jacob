@@ -21,9 +21,11 @@ const {
   loadDossier,
   saveDossier,
   isValidDossier,
+  connectBlobs,
 } = require('./_lib');
 
 exports.handler = async (event) => {
+  connectBlobs(event);
   const origin = originFromEnv();
   const pre = preflight(event, origin);
   if (pre) return pre;

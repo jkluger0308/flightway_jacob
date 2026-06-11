@@ -31,6 +31,7 @@ const {
   isValidDossier,
   EXCHANGE_RESET_AT,
   DOSSIER_VERSION_MARKER,
+  connectBlobs,
 } = require('./_lib');
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
@@ -164,6 +165,7 @@ async function updateDossierFromTranscript(userId, currentDossier, transcript) {
 }
 
 exports.handler = async (event) => {
+  connectBlobs(event);
   const origin = originFromEnv();
   const pre = preflight(event, origin);
   if (pre) return pre;
