@@ -492,6 +492,8 @@
   #page-quiz .qz-im-lbl { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 2px; }
   #page-quiz .qz-start-btn { display: inline-block; padding: 18px 52px; border: none; border-radius: 100px; background: var(--q-blue); color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 8px 24px rgba(26,86,219,.35); transition: all .2s; font-family: inherit; }
   #page-quiz .qz-start-btn:hover { background: #1347b3; transform: translateY(-2px); box-shadow: 0 12px 28px rgba(26,86,219,.45); }
+  #page-quiz .qz-skip-quiz-btn { background: transparent; color: var(--text-tertiary); border: 1px dashed var(--border); padding: 9px 18px; border-radius: 100px; font-size: 0.78rem; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+  #page-quiz .qz-skip-quiz-btn:hover { color: var(--text-secondary); border-color: var(--text-tertiary); background: var(--bg-alt); }
 
   #page-quiz .qz-hdr { text-align: center; margin-bottom: 24px; }
   #page-quiz .qz-logo-line { font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--q-blue); }
@@ -1443,6 +1445,11 @@
           <div><div class="qz-im-val">12</div><div class="qz-im-lbl">Industries</div></div>
         </div>
         <button class="qz-start-btn" onclick="qzStart()">Begin Assessment &rarr;</button>
+        <div style="margin-top:14px;">
+          <button class="qz-skip-quiz-btn" onclick="qzRandomizeAndShowResults()" title="Dev shortcut: generate a random answer set and jump to results">
+            🎲 Skip with random answers (dev)
+          </button>
+        </div>
       </div>
     </div>
 
@@ -3670,6 +3677,138 @@ function coachClearUser(){
 // "Just show me my results" button — bypasses the email-send step entirely.
 function qzSkipEmailToResults(){
   document.getElementById('qz-gate').classList.add('qz-hidden');
+  qzShowResults();
+}
+
+/* ─── Dev shortcut: randomize all quiz answers and jump straight to results ─
+   Fills every answer slot with valid random data so qzComputeScores() returns
+   real numbers and the rest of the results pipeline works as if the user
+   completed the quiz. Useful for testing the AI coach without taking the
+   quiz repeatedly. */
+function _qzRandInt(n){ return Math.floor(Math.random() * n); }
+function _qzPick(arr){ return arr[_qzRandInt(arr.length)]; }
+function _qzShuffle(arr){
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = _qzRandInt(i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function qzRandomizeAndShowResults(){
+  if (typeof QZ_Qs === 'undefined') {
+    alert('Quiz data not loaded yet — try again in a moment.');
+    return;
+  }
+
+  // Reset to known-good defaults first.
+  qzAnswers = {pairs:{},tot:{},env:[],map:null,emoji:{},swipes:{},yesno:{},rank:{},spectrum:null,subjects:[]};
+  qzSliders = {};
+  qzAns = {};
+  qzBudget = {salary:17,purpose:17,flex:16,growth:17,recog:16,security:17};
+  qzGpa = null; qzSchool = null; qzSchoolMatch = null; qzStage = null;
+  qzResumeText = null; qzResumeBoosts = {};
+  qzPairsIdx = 0; qzSwipeIdx = 0; qzYesNoIdx = 0; qzTotIdx = 0;
+
+  const FAKE_SCHOOLS = ['UCLA', 'NYU', 'Boston College', 'University of Michigan',
+    'UT Austin', 'Northwestern', 'Stanford', 'Georgia Tech', 'UNC Chapel Hill'];
+
+  QZ_Qs.forEach(q => {
+    switch (q.type) {
+      case 'cards': {
+        const c = _qzPick(q.cards);
+        qzStage = c.k;
+        qzAnswers.stage = c.k;
+        break;
+      }
+      case 'tags': {
+        const picks = _qzShuffle(q.tags).slice(0, Math.max(q.min, 4 + _qzRandInt(3)));
+        qzAnswers.subjects = picks.map(p => p.t);
+        break;
+      }
+      case 'text': {
+        if (q.key === 'school') qzSchool = _qzPick(FAKE_SCHOOLS);
+        break;
+      }
+      case 'gpa': {
+        // 3.0–4.0 in 0.01 steps, biased a bit toward higher values.
+        qzGpa = Math.round((3.0 + Math.random() * 1.0) * 100) / 100;
+        break;
+      }
+      case 'pairs': {
+        q.pairs.forEach((_, i) => { qzAnswers.pairs[i] = Math.random() < 0.5 ? 'a' : 'b'; });
+        break;
+      }
+      case 'tot': {
+        q.cards.forEach((_, i) => { qzAnswers.tot[i] = Math.random() < 0.5 ? 'a' : 'b'; });
+        break;
+      }
+      case 'vpicker': {
+        const idxs = _qzShuffle(q.options.map((_, i) => i)).slice(0, q.pick);
+        qzAnswers.env = idxs;
+        break;
+      }
+      case 'mc': {
+        qzAns[q.id] = _qzRandInt(q.opts.length);
+        break;
+      }
+      case 'sl': {
+        qzSliders[q.key] = _qzRandInt(101);
+        break;
+      }
+      case 'map2d': {
+        qzAnswers.map = { x: _qzRandInt(101), y: _qzRandInt(101) };
+        break;
+      }
+      case 'emoji': {
+        q.rows.forEach((_, i) => { qzAnswers.emoji[i] = _qzRandInt(4); });
+        break;
+      }
+      case 'dial': {
+        qzSliders[q.key] = _qzRandInt(101);
+        break;
+      }
+      case 'yesno': {
+        q.items.forEach((_, i) => { qzAnswers.yesno[i] = Math.random() < 0.5 ? 'yes' : 'no'; });
+        break;
+      }
+      case 'spec': {
+        qzAnswers.spectrum = _qzRandInt(q.stops.length);
+        break;
+      }
+      case 'swipe': {
+        q.cards.forEach((_, i) => { qzAnswers.swipes[i] = Math.random() < 0.5; });
+        break;
+      }
+      case 'rank': {
+        qzAnswers.rank[q.id] = _qzShuffle(q.items.map((_, i) => i));
+        break;
+      }
+      case 'budget': {
+        // Defaults already sum to 100 and are valid; leave them.
+        break;
+      }
+      default:
+        console.warn('qzRandomize: unhandled question type', q.type, q);
+    }
+  });
+
+  // Try to match the fake school to a real school object so school-specific
+  // recommendations render. Falls back silently if QZ_SCHOOLS isn't loaded.
+  try {
+    if (Array.isArray(window.QZ_SCHOOLS) && qzSchool) {
+      qzSchoolMatch = QZ_SCHOOLS.find(s =>
+        s.name && s.name.toLowerCase().includes(qzSchool.toLowerCase())
+      ) || QZ_SCHOOLS[_qzRandInt(QZ_SCHOOLS.length)] || null;
+    }
+  } catch (e) { /* non-fatal */ }
+
+  // Hide intro & jump straight to results, mirroring the post-quiz flow.
+  document.getElementById('qz-intro').classList.add('qz-hidden');
+  document.getElementById('qz-quiz').classList.add('qz-hidden');
+  const gateEl = document.getElementById('qz-gate');
+  if (gateEl) gateEl.classList.add('qz-hidden');
   qzShowResults();
 }
 
