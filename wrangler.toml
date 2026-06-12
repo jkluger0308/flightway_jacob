@@ -2,11 +2,7 @@ name = "flightway"
 compatibility_date = "2025-01-01"
 pages_build_output_dir = "."
 
-# Bind COACH_KV in the Cloudflare dashboard after creating a KV namespace:
-#   wrangler kv namespace create COACH_KV
-# Then paste the namespace id below (and preview_id for local dev).
-#
-# [[kv_namespaces]]
-# binding = "COACH_KV"
-# id = "YOUR_KV_NAMESPACE_ID"
-# preview_id = "YOUR_PREVIEW_KV_NAMESPACE_ID"
+[[kv_namespaces]]
+binding = "COACH_KV"
+id = "14129792fcce40dabe02380aff80d055"
+preview_id = "5a3893c3048b45e3a2bf6dfdcca92e65"
