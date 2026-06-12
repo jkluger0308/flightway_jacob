@@ -3482,8 +3482,8 @@ function qzRestart(){
    Flow:
      1. Quiz finishes → qzShowGate() shows a screen with "Email me" + "Home" buttons.
      2. "Email me" → qzOpenEmailModal() shows the email-prompt modal.
-     3. Submit → POST to /.netlify/functions/send-results with { email, token, results_url }.
-     4. The Netlify function emails the user a link of the form:
+     3. Submit → POST to /send-results with { email, token, results_url }.
+     4. The Cloudflare Pages function emails the user a link of the form:
             https://<your-site>/flightway.html#r=<token>
      5. On page load, qzBootFromHash() detects #r=… and restores state + jumps
         straight to qzShowResults().
@@ -3491,7 +3491,7 @@ function qzRestart(){
    even with zero persistence on the backend.
    ───────────────────────────────────────────────────────────────────────── */
 
-const QZ_NETLIFY_ENDPOINT = '/.netlify/functions/send-results';
+const QZ_SEND_RESULTS_EP = '/send-results';
 
 function qzShowGate(){
   document.getElementById('qz-quiz').classList.add('qz-hidden');
@@ -3593,7 +3593,7 @@ async function qzSubmitEmail(){
   const { url, token } = qzBuildResultsUrl();
   input.disabled=true; btn.disabled=true; btn.textContent='Sending…';
   try{
-    const resp = await fetch(QZ_NETLIFY_ENDPOINT, {
+    const resp = await fetch(QZ_SEND_RESULTS_EP, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, results_url: url, token })
@@ -3650,16 +3650,16 @@ if(document.readyState==='loading'){
    ─────────────
    Handles: skip-email → results jump, account signup, results-page coach
    card, Coach page chat UI, settings panel with dossier editor.
-   Server endpoints used (all in /Netlify/Functions/):
+   Server endpoints used (Cloudflare Pages Functions in /functions/):
      POST /account   { email, quizResults }   → { userId, alreadyExists }
      POST /chat      { userId, message }      → { reply, exchangeCount, dossierUpdated }
      GET  /dossier?userId=…                   → { dossier }
      PUT  /dossier   { userId, dossier }      → { ok, dossier }
    ═════════════════════════════════════════════════════════════════════════ */
 
-const COACH_ACCOUNT_EP = '/.netlify/functions/account';
-const COACH_CHAT_EP    = '/.netlify/functions/chat';
-const COACH_DOSSIER_EP = '/.netlify/functions/dossier';
+const COACH_ACCOUNT_EP = '/account';
+const COACH_CHAT_EP    = '/chat';
+const COACH_DOSSIER_EP = '/dossier';
 const COACH_RESET_AT   = 5;
 const COACH_LS_KEY     = 'fw_coach_user_v1';
 
@@ -3943,14 +3943,14 @@ async function coachSignup(){
 
     if (!resp.ok) {
       // Show whatever the server actually said. If the body is HTML (e.g. a
-      // Netlify 404 page), surface the status + a snippet so we can tell
+      // Cloudflare 404 page), surface the status + a snippet so we can tell
       // the function isn't reachable vs. a real handler error.
       const detail = (data && data.error)
         || (rawBody ? rawBody.slice(0, 240).replace(/\s+/g,' ').trim() : '(empty response body)');
       const tip = resp.status === 404
-        ? ' — the Netlify Function is not deployed at this URL. Did the latest deploy succeed?'
+        ? ' — the API endpoint is not deployed at this URL. Did the latest Cloudflare Pages deploy succeed?'
         : resp.status === 502 || resp.status === 504
-          ? ' — the function timed out or crashed. Check the Netlify Functions log.'
+          ? ' — the function timed out or crashed. Check the Cloudflare Pages Functions log.'
           : '';
       throw new Error(`HTTP ${resp.status} from /account: ${detail}${tip}`);
     }

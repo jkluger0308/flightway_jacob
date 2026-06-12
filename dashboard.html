@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flyway — Career Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0D0D1A;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 56px;
+    background: rgba(13, 13, 26, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 20px;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+    flex-shrink: 0;
+  }
+  .logo span { color: rgba(255,255,255,0.45); font-weight: 400; }
+
+  #search-wrap {
+    flex: 1;
+    max-width: 360px;
+    margin: 0 auto;
+    position: relative;
+  }
+  #search-wrap svg {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  #search {
+    width: 100%;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 8px 12px 8px 36px;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  #search::placeholder { color: rgba(255,255,255,0.3); }
+  #search:focus {
+    border-color: rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.1);
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .legend-label {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.35);
+    white-space: nowrap;
+  }
+  .legend-bar {
+    width: 96px;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, #9AA0AD, #5ED152, #3FAEF0, #BD4AE8, #F2A82E, #FFD24A);
+    box-shadow: 0 0 8px rgba(255,210,74,0.35);
+  }
+
+  .user-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 4px 12px 4px 6px;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.8);
+  }
+  .user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  /* ── CANVAS ── */
+  #map-canvas {
+    display: block;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  /* ── TOOLTIP ── */
+  #tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: rgba(18, 18, 42, 0.95);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    color: #fff;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 150;
+    max-width: 180px;
+    backdrop-filter: blur(12px);
+  }
+  #tooltip.visible { opacity: 1; }
+  #tooltip .tt-name { font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
+  #tooltip .tt-score { font-size: 0.78rem; margin-bottom: 2px; }
+  #tooltip .tt-industry { font-size: 0.72rem; color: rgba(255,255,255,0.5); }
+
+  /* ── DETAIL PANEL ── */
+  #detail-panel {
+    position: fixed;
+    top: 0; right: 0;
+    width: 340px;
+    height: 100%;
+    background: #12122A;
+    box-shadow: -8px 0 40px rgba(0,0,0,0.5);
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 110;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #detail-panel.open { transform: translateX(0); }
+
+  .panel-header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+  }
+  .panel-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: none;
+    cursor: pointer;
+    color: rgba(255,255,255,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    line-height: 1;
+    transition: background 0.2s, color 0.2s;
+  }
+  .panel-close:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+  .panel-industry-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.7);
+  }
+
+  .panel-career-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #fff;
+    margin-bottom: 16px;
+    padding-right: 36px;
+  }
+
+  .panel-fit-wrap {
+    margin-bottom: 4px;
+  }
+  .panel-fit-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.5);
+  }
+  .panel-fit-pct {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #fff;
+  }
+  .panel-fit-bar-bg {
+    width: 100%;
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .panel-fit-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+  }
+  .panel-body::-webkit-scrollbar { width: 4px; }
+  .panel-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+  .panel-section-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 10px;
+  }
+
+  .skills-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 24px;
+  }
+  .skill-pill {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.7);
+  }
+
+  .panel-description {
+    font-size: 0.88rem;
+    line-height: 1.65;
+    color: rgba(255,255,255,0.65);
+    margin-bottom: 24px;
+  }
+
+  .panel-footer {
+    padding: 16px 20px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+  }
+
+  .btn-daylife {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.3);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: not-allowed;
+    opacity: 0.5;
+    position: relative;
+  }
+  .btn-daylife .coming-soon-tip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(18,18,42,0.98);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.6);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .btn-daylife:hover .coming-soon-tip { display: block; }
+
+  /* ── MARCO BUBBLE ── */
+  #marco-wrap {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  #marco-chat {
+    width: 320px;
+    height: 420px;
+    background: #12122A;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 18px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform-origin: bottom right;
+    transform: scale(0.85);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease;
+  }
+  #marco-chat.open {
+    transform: scale(1);
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .marco-header {
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .marco-avatar-sm {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .marco-header-text { flex: 1; }
+  .marco-header-name { font-weight: 700; font-size: 0.9rem; }
+  .marco-header-sub { font-size: 0.72rem; color: rgba(255,255,255,0.4); margin-top: 1px; }
+  .marco-close {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.07);
+    border: none;
+    cursor: pointer;
+    color: rgba(255,255,255,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .marco-close:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+  #marco-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
+  }
+  #marco-messages::-webkit-scrollbar { width: 3px; }
+  #marco-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+  .msg {
+    display: flex;
+    gap: 8px;
+    max-width: 90%;
+  }
+  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+  .msg.marco { align-self: flex-start; }
+
+  .msg-avatar {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .msg-bubble {
+    padding: 9px 12px;
+    border-radius: 14px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+  .msg.marco .msg-bubble {
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.85);
+    border-bottom-left-radius: 4px;
+  }
+  .msg.user .msg-bubble {
+    background: linear-gradient(135deg, #4f46e5, #3b82f6);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+
+  .marco-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+  }
+  #marco-input {
+    flex: 1;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 8px 12px;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  #marco-input::placeholder { color: rgba(255,255,255,0.25); }
+  #marco-input:focus { border-color: rgba(79,70,229,0.6); }
+  #marco-send {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    flex-shrink: 0;
+    transition: opacity 0.2s;
+  }
+  #marco-send:hover { opacity: 0.85; }
+
+  /* Marco bubble trigger */
+  .marco-trigger-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .marco-trigger-label {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 0.02em;
+  }
+  #marco-trigger {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(79,70,229,0.4);
+    transition: transform 0.2s, box-shadow 0.2s;
+    animation: marcopulse 2s ease-out 3;
+  }
+  #marco-trigger:hover {
+    transform: scale(1.08);
+    box-shadow: 0 6px 28px rgba(79,70,229,0.55);
+  }
+
+  @keyframes marcopulse {
+    0%   { box-shadow: 0 4px 20px rgba(79,70,229,0.4); }
+    50%  { box-shadow: 0 4px 32px rgba(79,70,229,0.75), 0 0 0 10px rgba(79,70,229,0.1); }
+    100% { box-shadow: 0 4px 20px rgba(79,70,229,0.4); }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="logo">Fly<span>way</span></div>
+
+  <div id="search-wrap">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.5"/>
+      <path d="M9.5 9.5L12.5 12.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <input id="search" type="text" placeholder="Search careers...">
+  </div>
+
+  <div class="topbar-right">
+    <div class="legend">
+      <span class="legend-label">Poor fit</span>
+      <div class="legend-bar"></div>
+      <span class="legend-label">Best fit</span>
+    </div>
+    <div class="user-chip">
+      <div class="user-avatar" id="user-avatar-initials">S</div>
+      <span id="user-display-name">Student</span>
+    </div>
+  </div>
+</div>
+
+<!-- CANVAS -->
+<canvas id="map-canvas"></canvas>
+
+<!-- TOOLTIP -->
+<div id="tooltip">
+  <div class="tt-name" id="tt-name"></div>
+  <div class="tt-score" id="tt-score"></div>
+  <div class="tt-industry" id="tt-industry"></div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div id="detail-panel">
+  <div class="panel-header">
+    <button class="panel-close" id="panel-close">✕</button>
+    <div class="panel-industry-badge" id="panel-industry"></div>
+    <div class="panel-career-name" id="panel-career-name"></div>
+    <div class="panel-fit-wrap">
+      <div class="panel-fit-label">
+        <span>Match score</span>
+        <span class="panel-fit-pct" id="panel-fit-pct"></span>
+      </div>
+      <div class="panel-fit-bar-bg">
+        <div class="panel-fit-bar-fill" id="panel-fit-bar"></div>
+      </div>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div class="panel-section-label">Required Skills</div>
+    <div class="skills-wrap" id="panel-skills"></div>
+    <div class="panel-section-label">About this career</div>
+    <div class="panel-description" id="panel-description"></div>
+  </div>
+  <div class="panel-footer">
+    <button class="btn-daylife">
+      Try a Day in the Life →
+      <span class="coming-soon-tip">Coming soon</span>
+    </button>
+  </div>
+</div>
+
+<!-- MARCO -->
+<div id="marco-wrap">
+  <div id="marco-chat">
+    <div class="marco-header">
+      <div class="marco-avatar-sm">M</div>
+      <div class="marco-header-text">
+        <div class="marco-header-name">Marco</div>
+        <div class="marco-header-sub">Your Career Coach</div>
+      </div>
+      <button class="marco-close" id="marco-close">✕</button>
+    </div>
+    <div id="marco-messages"></div>
+    <div class="marco-input-row">
+      <input id="marco-input" type="text" placeholder="Ask Marco anything...">
+      <button id="marco-send">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M13 1L6 8M13 1L9 13L6 8M13 1L1 5L6 8" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div class="marco-trigger-wrap">
+    <span class="marco-trigger-label">Talk to Marco</span>
+    <button id="marco-trigger">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <path d="M11 2C6.03 2 2 5.58 2 10c0 2.1.9 4 2.36 5.45L3 20l4.73-1.27A9.35 9.35 0 0011 19c4.97 0 9-3.58 9-8s-4.03-9-9-9z" stroke="white" stroke-width="1.6" stroke-linejoin="round"/>
+        <circle cx="8" cy="10" r="1" fill="white"/>
+        <circle cx="11" cy="10" r="1" fill="white"/>
+        <circle cx="14" cy="10" r="1" fill="white"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<script>
+// ── DATA ──
+const careers = [
+  { id:1,  name:"Software Engineer",  industry:"Technology",  x:75, y:30, fitScore:85, skills:["coding","problem-solving","logic"],            description:"Design and build software systems. You'll spend your days solving complex technical problems, writing clean code, and collaborating with teams to ship products people use." },
+  { id:2,  name:"UX Designer",        industry:"Technology",  x:68, y:45, fitScore:72, skills:["creativity","empathy","visual thinking"],      description:"Shape how people interact with digital products. You'll research users, sketch interfaces, and test designs until the experience feels effortless." },
+  { id:3,  name:"Data Scientist",     industry:"Technology",  x:80, y:20, fitScore:60, skills:["statistics","coding","analysis"],              description:"Turn raw data into insight. You'll build models, run experiments, and help organizations make smarter decisions based on evidence." },
+  { id:4,  name:"Product Manager",    industry:"Technology",  x:70, y:55, fitScore:78, skills:["leadership","communication","strategy"],       description:"Own the vision for a product. You'll work across design, engineering, and business to decide what gets built, when, and why." },
+  { id:5,  name:"Investment Banker",  industry:"Finance",     x:30, y:20, fitScore:45, skills:["finance","analysis","communication"],          description:"Advise companies on mergers, acquisitions, and capital raises. High pressure, high reward, and long hours are all part of the deal." },
+  { id:6,  name:"Financial Analyst",  industry:"Finance",     x:25, y:30, fitScore:50, skills:["finance","excel","analysis"],                  description:"Evaluate financial data to guide investment and business decisions. You'll build models, write reports, and track market trends closely." },
+  { id:7,  name:"Actuary",            industry:"Finance",     x:20, y:40, fitScore:30, skills:["mathematics","statistics","risk"],             description:"Use math to measure and price risk for insurance companies and pension funds. One of the most stable and well-paid careers in finance." },
+  { id:8,  name:"Accountant",         industry:"Finance",     x:15, y:25, fitScore:25, skills:["finance","detail-oriented","excel"],           description:"Manage financial records, prepare tax filings, and ensure regulatory compliance. The backbone of every functioning business." },
+  { id:9,  name:"Surgeon",            industry:"Healthcare",  x:50, y:15, fitScore:20, skills:["medicine","precision","stamina"],              description:"Perform operations that save and improve lives. Requires years of training, steady hands, and the ability to make critical decisions under pressure." },
+  { id:10, name:"Nurse",              industry:"Healthcare",  x:45, y:25, fitScore:35, skills:["empathy","medicine","communication"],          description:"Provide direct patient care and support. Nurses are the most human part of healthcare, offering both medical skill and genuine compassion." },
+  { id:11, name:"Therapist",          industry:"Healthcare",  x:40, y:35, fitScore:55, skills:["empathy","listening","psychology"],            description:"Help people navigate mental health challenges through talk therapy and evidence-based treatment. Deeply meaningful work with real impact." },
+  { id:12, name:"Teacher",            industry:"Education",   x:50, y:65, fitScore:65, skills:["communication","patience","leadership"],       description:"Shape the minds of the next generation. Teaching is harder than it looks and more rewarding than most people expect." },
+  { id:13, name:"Professor",          industry:"Education",   x:55, y:75, fitScore:60, skills:["research","communication","expertise"],        description:"Teach at the university level while conducting original research. Combines deep intellectual work with mentorship and academic community." },
+  { id:14, name:"Lawyer",             industry:"Law",         x:30, y:60, fitScore:70, skills:["argumentation","research","communication"],    description:"Represent clients, argue cases, and navigate legal systems. Requires sharp thinking, strong writing, and the ability to stay calm under pressure." },
+  { id:15, name:"Policy Analyst",     industry:"Government",  x:35, y:70, fitScore:75, skills:["research","writing","analysis"],               description:"Research and evaluate policies to help governments make better decisions. A career for people who want to shape society at the systems level." },
+  { id:16, name:"Graphic Designer",   industry:"Creative",    x:65, y:70, fitScore:80, skills:["creativity","visual thinking","software"],     description:"Create visual communication for brands, products, and media. Combines artistic skill with strategic thinking about how visuals affect people." },
+  { id:17, name:"Electrician",        industry:"Trades",      x:15, y:70, fitScore:40, skills:["technical","problem-solving","safety"],        description:"Install and maintain electrical systems in homes and buildings. A skilled trade with strong job security and good earning potential." },
+  { id:18, name:"Architect",          industry:"Design",      x:55, y:55, fitScore:68, skills:["creativity","math","spatial reasoning"],       description:"Design buildings and spaces where people live, work, and gather. Blends artistic vision with engineering constraints and human needs." },
+  { id:19, name:"Journalist",         industry:"Media",       x:45, y:75, fitScore:73, skills:["writing","curiosity","communication"],         description:"Investigate and report on the world. Journalism at its best holds power accountable and helps people understand what's happening and why." },
+  { id:20, name:"Entrepreneur",       industry:"Business",    x:60, y:40, fitScore:90, skills:["leadership","risk-taking","creativity"],       description:"Build something from nothing. Entrepreneurs identify problems, take calculated risks, and create organizations that didn't exist before." }
+];
+
+// ── STATE ──
+const state = {
+  zoom: 1, panX: 0, panY: 0,
+  hoveredId: null, selectedId: null,
+  isDragging: false, hasDragged: false,
+  dragStart: { x: 0, y: 0 }, panStart: { x: 0, y: 0 },
+  searchQuery: '',
+  mouseX: 0, mouseY: 0, mouseOn: false
+};
+const hoverRadii = {};
+careers.forEach(c => hoverRadii[c.id] = 18);
+
+// Fast id lookup
+const careersById = {};
+careers.forEach(c => careersById[c.id] = c);
+
+// ── PERSONALIZATION FROM QUIZ ──
+// The quiz (index.html) bakes the user's name + 12 normalized industry
+// scores into the #r=<token> link that lands here. Decode them and turn the
+// industry scores into per-career fit scores so the map reflects THEIR results.
+function b64UrlDecode(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  const bin = atob(s);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+// Each career → the quiz's industry key(s) (first key is weighted highest).
+// Quiz keys: tech, healthcare, finance, creative, education, business, law,
+// engineering, science, startups, social, marketing.
+const careerToQuizKeys = {
+  1:["tech","engineering"], 2:["creative","tech"], 3:["science","tech"], 4:["startups","business"],
+  5:["finance"], 6:["finance"], 7:["finance","science"], 8:["finance"],
+  9:["healthcare"], 10:["healthcare"], 11:["healthcare","social"],
+  12:["education"], 13:["education","science"],
+  14:["law"], 15:["law","social"],
+  16:["creative","marketing"], 17:["engineering"], 18:["engineering","creative"],
+  19:["marketing","social"], 20:["startups","business"]
+};
+
+let userName = 'Student';
+(function initPersonalization() {
+  const params = new URLSearchParams(window.location.search);
+  let name = params.get('name') || '';
+
+  let quizState = null;
+  const m = (window.location.hash || '').match(/^#r=([A-Za-z0-9_-]+)$/);
+  if (m) {
+    try { quizState = JSON.parse(b64UrlDecode(m[1])); }
+    catch (e) { console.warn('Bad results token in URL', e); }
+  }
+
+  if (quizState && quizState.name) name = quizState.name;
+  userName = (name || 'Student').trim() || 'Student';
+
+  // Override hardcoded fit scores with the personalized ones when available.
+  const scores = quizState && quizState.scores;
+  if (scores && typeof scores === 'object') {
+    careers.forEach(c => {
+      const keys = careerToQuizKeys[c.id] || [];
+      if (!keys.length) return;
+      let wSum = 0, wTot = 0;
+      keys.forEach((k, i) => {
+        const weight = i === 0 ? 2 : 1;
+        const v = typeof scores[k] === 'number' ? scores[k] : 0;
+        wSum += v * weight; wTot += weight;
+      });
+      const industryComponent = wTot ? wSum / wTot : c.fitScore;
+      // Mostly the quiz signal, with a touch of the baseline so careers in the
+      // same industry stay visually distinct.
+      c.fitScore = Math.max(0, Math.min(100, Math.round(0.85 * industryComponent + 0.15 * c.fitScore)));
+    });
+  }
+})();
+
+// ── SUB-BRANCHES (career specializations) ──
+const subBranchNames = {
+  1:["Frontend","Backend","DevOps","Mobile"],
+  2:["UX Research","Interaction","Design Systems"],
+  3:["ML Engineer","Data Analyst","Research Sci"],
+  4:["Growth PM","Technical PM","Platform PM"],
+  5:["M&A","Capital Markets","Restructuring"],
+  6:["Equity Research","Corporate Fin","FP&A"],
+  7:["Life Actuary","Health Actuary","Pensions"],
+  8:["Tax","Audit","Forensic"],
+  9:["Cardiac","Neurosurgery","Orthopedic"],
+  10:["ICU Nurse","ER Nurse","Pediatric"],
+  11:["Clinical Psych","Family Therapy","CBT"],
+  12:["Elementary","STEM","Special Ed"],
+  13:["Researcher","Lecturer","Dept Chair"],
+  14:["Corporate Law","Public Defender","IP Law","Litigation"],
+  15:["Health Policy","Economic Policy","Foreign Policy"],
+  16:["Brand Design","Motion Graphics","Illustration"],
+  17:["Residential","Industrial","Lineworker"],
+  18:["Residential","Landscape","Urban Planning"],
+  19:["Investigative","Broadcast","Data Journalism"],
+  20:["Startup Founder","Solopreneur","Social Venture"]
+};
+
+const subNodes = [];
+(function buildSubNodes() {
+  const centroids = getIndustryCentroids();
+  careers.forEach(c => {
+    const names = subBranchNames[c.id] || [];
+    const cen = centroids[c.industry];
+    let baseAng = Math.atan2(c.y - cen.y, c.x - cen.x);
+    if (c.x === cen.x && c.y === cen.y) baseAng = -Math.PI / 2; // lone node points up
+    const n = names.length;
+    const spread = Math.PI * 0.62; // fan width
+    names.forEach((nm, i) => {
+      const off = n === 1 ? 0 : (i / (n - 1) - 0.5);
+      const ang = baseAng + off * spread;
+      const R = 6.2 * (0.82 + 0.28 * (i % 2)); // vary branch length
+      subNodes.push({
+        parentId: c.id,
+        px: c.x, py: c.y,
+        x: c.x + Math.cos(ang) * R,
+        y: c.y + Math.sin(ang) * R,
+        name: nm,
+        rar: rarityOf(c.fitScore),
+        anim: 0
+      });
+    });
+  });
+})();
+
+// ── CANVAS SETUP ──
+const canvas = document.getElementById('map-canvas');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ── COORDINATE HELPERS ──
+function worldToScreen(wx, wy) {
+  return {
+    x: wx / 100 * canvas.width * state.zoom + state.panX,
+    y: wy / 100 * canvas.height * state.zoom + state.panY
+  };
+}
+function screenToWorld(sx, sy) {
+  return {
+    x: (sx - state.panX) / state.zoom / canvas.width * 100,
+    y: (sy - state.panY) / state.zoom / canvas.height * 100
+  };
+}
+
+// ── FIT SCORE COLOR (Fortnite rarity ladder) ──
+// common → uncommon → rare → EPIC (purple) → LEGENDARY (gold) → shiny gold
+function rarityOf(score) {
+  if (score >= 90) return { tier:'mythic',     base:'#FFD24A', light:'#FFF3C0', dark:'#E0A012', glow:'255,205,70' };
+  if (score >= 76) return { tier:'legendary',  base:'#F2A82E', light:'#FFD98A', dark:'#C97A14', glow:'242,168,46' };
+  if (score >= 61) return { tier:'epic',       base:'#BD4AE8', light:'#E4A8F7', dark:'#8A2BB5', glow:'189,74,232' };
+  if (score >= 41) return { tier:'rare',       base:'#3FAEF0', light:'#9AD6FA', dark:'#1E7BC4', glow:'63,174,240' };
+  if (score >= 21) return { tier:'uncommon',   base:'#5ED152', light:'#A9EDA1', dark:'#36A02C', glow:'94,209,82' };
+  return                  { tier:'common',     base:'#9AA0AD', light:'#C7CBD3', dark:'#6E7480', glow:'154,160,173' };
+}
+function fitColor(score) { return rarityOf(score).base; }
+
+// ── INDUSTRY CENTROIDS ──
+function getIndustryCentroids() {
+  const map = {};
+  careers.forEach(c => {
+    if (!map[c.industry]) map[c.industry] = { sx: 0, sy: 0, n: 0 };
+    map[c.industry].sx += c.x;
+    map[c.industry].sy += c.y;
+    map[c.industry].n++;
+  });
+  const out = {};
+  for (const ind in map) {
+    out[ind] = { x: map[ind].sx / map[ind].n, y: map[ind].sy / map[ind].n };
+  }
+  return out;
+}
+
+// ── HIT TEST ──
+function careerAtScreen(mx, my) {
+  for (let i = careers.length - 1; i >= 0; i--) {
+    const c = careers[i];
+    const s = worldToScreen(c.x, c.y);
+    const r = hoverRadii[c.id] * state.zoom;
+    const dist = Math.sqrt((mx - s.x) ** 2 + (my - s.y) ** 2);
+    if (dist <= r) return c;
+  }
+  return null;
+}
+
+// ── RENDER ──
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function render() {
+  const W = canvas.width, H = canvas.height;
+  const SPOT_R = Math.max(W, H) * 0.12; // spotlight radius (~10% of map)
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#0D0D1A';
+  ctx.fillRect(0, 0, W, H);
+
+  // Dot grid (screen space)
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  const spacing = 40;
+  const offX = ((state.panX % spacing) + spacing) % spacing;
+  const offY = ((state.panY % spacing) + spacing) % spacing;
+  for (let x = offX - spacing; x < W + spacing; x += spacing) {
+    for (let y = offY - spacing; y < H + spacing; y += spacing) {
+      ctx.beginPath();
+      ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Spotlight brighten under cursor (screen space)
+  if (state.mouseOn) {
+    const sg = ctx.createRadialGradient(
+      state.mouseX, state.mouseY, 0,
+      state.mouseX, state.mouseY, SPOT_R * 1.5
+    );
+    sg.addColorStop(0, 'rgba(255,255,255,0.07)');
+    sg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sg;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  ctx.save();
+  ctx.translate(state.panX, state.panY);
+  ctx.scale(state.zoom, state.zoom);
+
+  const WW = canvas.width, WH = canvas.height;
+
+  // Industry cluster labels
+  const centroids = getIndustryCentroids();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  ctx.font = `700 28px Inter, sans-serif`;
+  for (const ind in centroids) {
+    const cx = centroids[ind].x / 100 * WW;
+    const cy = centroids[ind].y / 100 * WH;
+    ctx.fillText(ind.toUpperCase(), cx, cy - 55);
+  }
+
+  // Connection lines between same-industry careers
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < careers.length; i++) {
+    for (let j = i + 1; j < careers.length; j++) {
+      if (careers[i].industry === careers[j].industry) {
+        const a = careers[i], b = careers[j];
+        ctx.beginPath();
+        ctx.moveTo(a.x / 100 * WW, a.y / 100 * WH);
+        ctx.lineTo(b.x / 100 * WW, b.y / 100 * WH);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Career nodes
+  const q = state.searchQuery.toLowerCase();
+  const now = performance.now();
+  careers.forEach(c => {
+    const sx = c.x / 100 * WW;
+    const sy = c.y / 100 * WH;
+    const r = hoverRadii[c.id];
+    const rar = rarityOf(c.fitScore);
+    const isHovered = state.hoveredId === c.id;
+    const isSelected = state.selectedId === c.id;
+    const isGold = c.fitScore >= 76;   // legendary + shiny
+    const isBest = c.fitScore >= 90;   // shiny gold
+
+    const matches = !q || c.name.toLowerCase().includes(q) || c.industry.toLowerCase().includes(q);
+    const alpha = q ? (matches ? 1 : 0.2) : 1;
+    ctx.globalAlpha = alpha;
+
+    // ── Glow halo (luster grows with rarity) ──
+    let glowStrength = 0;
+    if (isBest) glowStrength = 0.6;
+    else if (isGold) glowStrength = 0.42;
+    else if (c.fitScore >= 61) glowStrength = 0.24;   // epic purple shimmer
+    if (isHovered) glowStrength = Math.max(glowStrength, 0.4);
+    if (isSelected) glowStrength = Math.max(glowStrength, 0.5);
+
+    if (glowStrength > 0) {
+      // shimmer pulse on the gold tiers for extra shine
+      const mult = isGold ? 1 + 0.28 * Math.sin(now / 380 + c.id) : 1;
+      const haloR = r * (isBest ? 3.3 : 2.6);
+      const glow = ctx.createRadialGradient(sx, sy, r * 0.4, sx, sy, haloR);
+      glow.addColorStop(0, `rgba(${rar.glow},${(glowStrength * mult).toFixed(3)})`);
+      glow.addColorStop(1, `rgba(${rar.glow},0)`);
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(sx, sy, haloR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Ring for selected
+    if (isSelected) {
+      ctx.strokeStyle = `rgba(${rar.glow},0.95)`;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r + 5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // ── Metallic body (3D gem with off-center light) ──
+    const body = ctx.createRadialGradient(
+      sx - r * 0.35, sy - r * 0.38, r * 0.1,
+      sx, sy, r
+    );
+    body.addColorStop(0, rar.light);
+    body.addColorStop(0.55, rar.base);
+    body.addColorStop(1, rar.dark);
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // ── Bright rim on gold tiers ──
+    if (isGold) {
+      ctx.strokeStyle = isBest ? 'rgba(255,247,210,0.9)' : 'rgba(255,225,150,0.6)';
+      ctx.lineWidth = isBest ? 1.6 : 1.2;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r - 0.6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // ── Specular highlight (the shine) ──
+    const hx = sx - r * 0.4, hy = sy - r * 0.45;
+    const hi = ctx.createRadialGradient(hx, hy, 0, hx, hy, r * 0.6);
+    hi.addColorStop(0, `rgba(255,255,255,${isGold ? 0.85 : 0.5})`);
+    hi.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = hi;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Label
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = `500 11px Inter, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(c.name, sx, sy + r + 5);
+
+    ctx.globalAlpha = 1;
+  });
+
+  // ── SUB-BRANCHES (spotlight reveal) ──
+  subNodes.forEach(sn => {
+    const sx = sn.x / 100 * WW;
+    const sy = sn.y / 100 * WH;
+
+    // proximity to cursor (screen space) → spotlight factor
+    let target = 0;
+    if (state.mouseOn) {
+      const scr = worldToScreen(sn.x, sn.y);
+      const d = Math.hypot(scr.x - state.mouseX, scr.y - state.mouseY);
+      const raw = Math.max(0, Math.min(1, 1 - d / SPOT_R));
+      target = raw * raw * (3 - 2 * raw); // smoothstep falloff
+    }
+    sn.anim = lerp(sn.anim, target, 0.2);
+    const a = sn.anim;
+
+    const matchesSub = !q || sn.name.toLowerCase().includes(q);
+    const searchA = q ? (matchesSub ? 1 : 0.12) : 1;
+
+    const subR = 1.4 + 5.4 * a;                 // shrink when far, grow in spotlight
+    ctx.globalAlpha = (0.07 + 0.9 * a) * searchA; // darken when far, brighten near
+
+    // branch line from parent edge outward
+    const pxw = sn.px / 100 * WW, pyw = sn.py / 100 * WH;
+    const dx = sx - pxw, dy = sy - pyw;
+    const dlen = Math.hypot(dx, dy) || 1;
+    const pr = hoverRadii[sn.parentId];
+    ctx.strokeStyle = `rgba(${sn.rar.glow}, ${0.1 + 0.5 * a})`;
+    ctx.lineWidth = 0.8 + 1.3 * a;
+    ctx.beginPath();
+    ctx.moveTo(pxw + dx / dlen * pr, pyw + dy / dlen * pr);
+    ctx.lineTo(sx, sy);
+    ctx.stroke();
+
+    // bloom glow
+    if (a > 0.04) {
+      const g = ctx.createRadialGradient(sx, sy, subR * 0.4, sx, sy, subR * 2.6);
+      g.addColorStop(0, `rgba(${sn.rar.glow}, ${0.45 * a})`);
+      g.addColorStop(1, `rgba(${sn.rar.glow}, 0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(sx, sy, subR * 2.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // circle + highlight
+    ctx.fillStyle = sn.rar.base;
+    ctx.beginPath();
+    ctx.arc(sx, sy, subR, 0, Math.PI * 2);
+    ctx.fill();
+    if (a > 0.1) {
+      ctx.fillStyle = `rgba(255,255,255,${0.55 * a})`;
+      ctx.beginPath();
+      ctx.arc(sx - subR * 0.3, sy - subR * 0.35, subR * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // label only when sufficiently bloomed
+    if (a > 0.4) {
+      ctx.globalAlpha = ((a - 0.4) / 0.6) * searchA;
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.font = `500 9px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(sn.name, sx, sy + subR + 3);
+    }
+    ctx.globalAlpha = 1;
+  });
+
+  ctx.restore();
+
+  // ── SPOTLIGHT VIGNETTE (dims the map outside the cursor radius) ──
+  if (state.mouseOn) {
+    const v = ctx.createRadialGradient(
+      state.mouseX, state.mouseY, SPOT_R * 0.55,
+      state.mouseX, state.mouseY, Math.hypot(W, H) * 0.7
+    );
+    v.addColorStop(0, 'rgba(13,13,26,0)');
+    v.addColorStop(1, 'rgba(13,13,26,0.45)');
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+// ── ANIMATION LOOP ──
+let rafId;
+function loop() {
+  let dirty = false;
+  careers.forEach(c => {
+    const target = state.hoveredId === c.id ? 24 : 18;
+    const cur = hoverRadii[c.id];
+    const next = lerp(cur, target, 0.18);
+    if (Math.abs(next - cur) > 0.01) { hoverRadii[c.id] = next; dirty = true; }
+    else hoverRadii[c.id] = target;
+  });
+  render();
+  rafId = requestAnimationFrame(loop);
+}
+loop();
+
+// ── TOOLTIP ──
+const tooltip = document.getElementById('tooltip');
+const ttName = document.getElementById('tt-name');
+const ttScore = document.getElementById('tt-score');
+const ttInd = document.getElementById('tt-industry');
+
+function showTooltip(career, mx, my) {
+  ttName.textContent = career.name;
+  ttScore.textContent = `${career.fitScore}% match`;
+  ttInd.textContent = career.industry;
+  const OFFSET = 16;
+  let tx = mx + OFFSET, ty = my - 10;
+  if (tx + 180 > window.innerWidth) tx = mx - 180 - OFFSET;
+  if (ty + 80 > window.innerHeight) ty = my - 80;
+  tooltip.style.left = tx + 'px';
+  tooltip.style.top = ty + 'px';
+  tooltip.classList.add('visible');
+}
+function hideTooltip() { tooltip.classList.remove('visible'); }
+
+// ── DETAIL PANEL ──
+const panel = document.getElementById('detail-panel');
+
+function openPanel(career) {
+  state.selectedId = career.id;
+  const rar = rarityOf(career.fitScore);
+  const badge = document.getElementById('panel-industry');
+  badge.textContent = career.industry;
+  badge.style.background = `rgba(${rar.glow},0.18)`;
+  badge.style.color = rar.light;
+  document.getElementById('panel-career-name').textContent = career.name;
+  document.getElementById('panel-fit-pct').textContent = career.fitScore + '% match';
+  const bar = document.getElementById('panel-fit-bar');
+  bar.style.width = career.fitScore + '%';
+  bar.style.background = `linear-gradient(90deg, ${rar.dark}, ${rar.base}, ${rar.light})`;
+  bar.style.boxShadow = `0 0 12px rgba(${rar.glow},0.6)`;
+  const skillsWrap = document.getElementById('panel-skills');
+  skillsWrap.innerHTML = career.skills.map(s => `<span class="skill-pill">${s}</span>`).join('');
+  document.getElementById('panel-description').textContent = career.description;
+  panel.classList.add('open');
+}
+
+function closePanel() {
+  state.selectedId = null;
+  panel.classList.remove('open');
+}
+
+document.getElementById('panel-close').addEventListener('click', closePanel);
+
+// ── MOUSE EVENTS ──
+canvas.addEventListener('mousemove', e => {
+  const mx = e.clientX, my = e.clientY;
+  state.mouseX = mx; state.mouseY = my; state.mouseOn = true;
+
+  if (state.isDragging) {
+    const dx = mx - state.dragStart.x, dy = my - state.dragStart.y;
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) state.hasDragged = true;
+    state.panX = state.panStart.x + dx;
+    state.panY = state.panStart.y + dy;
+    canvas.style.cursor = 'grabbing';
+    return;
+  }
+
+  const hit = careerAtScreen(mx, my);
+  if (hit) {
+    state.hoveredId = hit.id;
+    canvas.style.cursor = 'pointer';
+    showTooltip(hit, mx, my);
+  } else {
+    state.hoveredId = null;
+    canvas.style.cursor = 'grab';
+    hideTooltip();
+  }
+});
+
+canvas.addEventListener('mousedown', e => {
+  state.isDragging = true;
+  state.hasDragged = false;
+  state.dragStart = { x: e.clientX, y: e.clientY };
+  state.panStart = { x: state.panX, y: state.panY };
+  canvas.style.cursor = 'grabbing';
+});
+
+window.addEventListener('mouseup', e => {
+  if (!state.isDragging) return;
+  state.isDragging = false;
+  canvas.style.cursor = 'grab';
+
+  if (!state.hasDragged) {
+    const hit = careerAtScreen(e.clientX, e.clientY);
+    if (hit) {
+      openPanel(hit);
+    } else {
+      closePanel();
+    }
+  }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  state.isDragging = false;
+  state.hoveredId = null;
+  state.mouseOn = false;
+  hideTooltip();
+  canvas.style.cursor = 'default';
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  const newZoom = Math.min(3, Math.max(0.5, state.zoom * factor));
+  const mx = e.clientX, my = e.clientY;
+  state.panX = mx - (mx - state.panX) * (newZoom / state.zoom);
+  state.panY = my - (my - state.panY) * (newZoom / state.zoom);
+  state.zoom = newZoom;
+}, { passive: false });
+
+// ── SEARCH ──
+document.getElementById('search').addEventListener('input', e => {
+  state.searchQuery = e.target.value.trim();
+});
+
+// ── MARCO ──
+const marcoChat = document.getElementById('marco-chat');
+const marcoBubble = document.getElementById('marco-trigger');
+const marcoClose = document.getElementById('marco-close');
+const marcoMessages = document.getElementById('marco-messages');
+const marcoInput = document.getElementById('marco-input');
+const marcoSend = document.getElementById('marco-send');
+let marcoOpened = false;
+
+function addMessage(text, role) {
+  const wrap = document.createElement('div');
+  wrap.className = `msg ${role}`;
+  if (role === 'marco') {
+    wrap.innerHTML = `<div class="msg-avatar">M</div><div class="msg-bubble">${text}</div>`;
+  } else {
+    wrap.innerHTML = `<div class="msg-bubble">${text}</div>`;
+  }
+  marcoMessages.appendChild(wrap);
+  marcoMessages.scrollTop = marcoMessages.scrollHeight;
+}
+
+function sendUserMessage() {
+  const text = marcoInput.value.trim();
+  if (!text) return;
+  addMessage(text, 'user');
+  marcoInput.value = '';
+  setTimeout(() => {
+    addMessage("Good question, let me look into that for you... [full AI coming soon]", 'marco');
+  }, 600);
+}
+
+marcoBubble.addEventListener('click', () => {
+  marcoChat.classList.add('open');
+  if (!marcoOpened) {
+    marcoOpened = true;
+    const greetName = (userName && userName !== 'Student') ? userName : 'there';
+    setTimeout(() => {
+      addMessage(`Hey ${greetName}! I'm Marco, your Flyway career coach. Your map is colored by how well each path fits your quiz results — click any career to dig in, or ask me anything.`, 'marco');
+    }, 300);
+  }
+});
+
+marcoClose.addEventListener('click', () => marcoChat.classList.remove('open'));
+marcoSend.addEventListener('click', sendUserMessage);
+marcoInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendUserMessage(); });
+
+// ── SIGNED-IN USER (resolved during personalization above) ──
+(function() {
+  const name = userName || 'Student';
+  document.getElementById('user-display-name').textContent = name;
+  document.getElementById('user-avatar-initials').textContent = name[0].toUpperCase();
+})();
+</script>
+</body>
+</html>

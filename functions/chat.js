@@ -1,31 +1,6 @@
-// Netlify Function: chat
-// ----------------------
-// One endpoint for the AI career coach. Holds the 5-exchange counter
-// server-side and triggers an inline dossier update + chat wipe when the
-// counter hits the reset point. The last assistant reply is carried over
-// into the fresh conversation so the user keeps their place.
-//
-// Also supports a manual dossier update: if the user message asks to
-// "update the dossier" (or similar), the dossier is refreshed from the
-// current transcript without resetting the conversation.
-//
-// Request:
-//   POST /.netlify/functions/chat
-//   { userId: "you@example.com", message: "..." }
-//
-// Response:
-//   { reply, exchangeCount, dossierUpdated, reset, manualUpdate }
-//
-// Environment variables (set in Netlify Site settings → Environment variables):
-//   GEMINI_API_KEY   required. Get one free at https://aistudio.google.com/.
-//   GEMINI_MODEL          optional, defaults to "gemini-2.5-flash-lite".
-//   GEMINI_FALLBACK_MODEL optional, defaults to "gemini-2.0-flash".
-//   GEMINI_USE_SEARCH     optional: "auto" (default), "always", or "never".
-//   ALLOWED_ORIGIN        optional, defaults to "*".
-
-const {
-  json,
-  preflight,
+import {
+  jsonResponse,
+  preflightResponse,
   originFromEnv,
   normalizeEmail,
   isValidEmail,
@@ -33,33 +8,29 @@ const {
   saveDossier,
   loadChat,
   saveChat,
-  resetChat,
   buildSeedDossier,
   isValidDossier,
   EXCHANGE_RESET_AT,
   DOSSIER_VERSION_MARKER,
-  connectBlobs,
-} = require('./_lib');
+} from './_lib.js';
 
-// flash-lite has the most generous free-tier RPM (≈30/min vs ≈15 for flash).
-// Override with GEMINI_MODEL in Netlify env vars if you enable billing.
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
-const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.0-flash';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-
-// Hard limit on a single user message to prevent prompt-injection floods
-// and runaway token bills on the free tier.
 const MAX_MESSAGE_CHARS = 2000;
 
-function geminiUrl(model) {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-    model,
-  )}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+function geminiConfig(env) {
+  return {
+    apiKey: env.GEMINI_API_KEY || '',
+    model: env.GEMINI_MODEL || 'gemini-2.5-flash-lite',
+    fallbackModel: env.GEMINI_FALLBACK_MODEL || 'gemini-2.0-flash',
+    useSearchMode: (env.GEMINI_USE_SEARCH || 'auto').toLowerCase(),
+  };
 }
 
-// Convert our internal {role:'user'|'assistant', content} array into Gemini's
-// {role:'user'|'model', parts:[{text}]} format. Gemini uses "model" instead
-// of "assistant".
+function geminiUrl(model, apiKey) {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+    model,
+  )}:generateContent?key=${encodeURIComponent(apiKey)}`;
+}
+
 function toGeminiContents(messages) {
   return messages.map((m) => ({
     role: m.role === 'assistant' ? 'model' : 'user',
@@ -71,21 +42,19 @@ function sleep(ms) {
   return new Promise((res) => setTimeout(res, ms));
 }
 
-// Only retry transient overload errors — NOT 429. Retrying a rate-limit
-// hammers the API (4 rapid calls in ~4s) and makes the problem worse.
 const RETRYABLE_STATUS = new Set([500, 503]);
 const RETRY_DELAYS_MS = [800, 2000];
 
-// Enable web search only when the message likely needs live facts. Search
-// on every message burns quota faster and is stricter on the free tier.
-// Set GEMINI_USE_SEARCH=always in Netlify to force search on every reply.
-function needsWebSearch(message) {
-  const mode = (process.env.GEMINI_USE_SEARCH || 'auto').toLowerCase();
-  if (mode === 'always') return true;
-  if (mode === 'never') return false;
+function needsWebSearch(message, useSearchMode) {
+  if (useSearchMode === 'always') return true;
+  if (useSearchMode === 'never') return false;
   const m = String(message || '').toLowerCase();
-  return /\b(deadline|application|apply|tuition|salary|requirements|catalog|course list|look up|search for|find out|current|latest|website|how much|when is|what (are|is) the)\b/.test(m)
-    || /\b(major|minor|program|internship|recruiting)\b.{0,40}\b(at|for)\b/.test(m);
+  return (
+    /\b(deadline|application|apply|tuition|salary|requirements|catalog|course list|look up|search for|find out|current|latest|website|how much|when is|what (are|is) the)\b/.test(
+      m,
+    )
+    || /\b(major|minor|program|internship|recruiting)\b.{0,40}\b(at|for)\b/.test(m)
+  );
 }
 
 function buildGeminiBody({ systemInstruction, contents, temperature, useSearch }) {
@@ -103,8 +72,6 @@ function buildGeminiBody({ systemInstruction, contents, temperature, useSearch }
       { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
     ],
   };
-  // responseMimeType is incompatible with tools on some models; only set
-  // for plain (non-search) calls.
   if (!useSearch) {
     body.generationConfig.responseMimeType = 'text/plain';
   }
@@ -114,9 +81,9 @@ function buildGeminiBody({ systemInstruction, contents, temperature, useSearch }
   return body;
 }
 
-async function callGeminiOnce({ model, systemInstruction, contents, temperature, useSearch }) {
+async function callGeminiOnce({ model, apiKey, systemInstruction, contents, temperature, useSearch }) {
   const body = buildGeminiBody({ systemInstruction, contents, temperature, useSearch });
-  const resp = await fetch(geminiUrl(model), {
+  const resp = await fetch(geminiUrl(model, apiKey), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -134,41 +101,40 @@ async function callGeminiOnce({ model, systemInstruction, contents, temperature,
   return text;
 }
 
-async function callGeminiWithRetries({ model, systemInstruction, contents, temperature, useSearch }) {
+async function callGeminiWithRetries(opts) {
   let lastErr = null;
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     if (attempt > 0) await sleep(RETRY_DELAYS_MS[attempt - 1]);
     try {
-      return await callGeminiOnce({ model, systemInstruction, contents, temperature, useSearch });
+      return await callGeminiOnce(opts);
     } catch (err) {
       lastErr = err;
-      if (err.status === 429) throw err; // don't retry rate limits
+      if (err.status === 429) throw err;
       if (!RETRYABLE_STATUS.has(err.status)) throw err;
     }
   }
   throw lastErr || new Error('Gemini request failed.');
 }
 
-async function callGemini({ systemInstruction, contents, temperature = 0.7, useSearch = false }) {
-  if (!GEMINI_API_KEY) {
+async function callGemini(env, { systemInstruction, contents, temperature = 0.7, useSearch = false }) {
+  const { apiKey, model, fallbackModel } = geminiConfig(env);
+  if (!apiKey) {
     throw new Error(
-      'GEMINI_API_KEY is not configured. Add it in Netlify Site settings → Environment variables and redeploy.',
+      'GEMINI_API_KEY is not configured. Add it in Cloudflare Pages → Settings → Variables and Secrets, then redeploy.',
     );
   }
 
-  const attempts = [
-    { model: GEMINI_MODEL, useSearch },
-  ];
-  // On rate limit or overload, fall back to a lighter model without search.
-  if (GEMINI_FALLBACK_MODEL && GEMINI_FALLBACK_MODEL !== GEMINI_MODEL) {
-    attempts.push({ model: GEMINI_FALLBACK_MODEL, useSearch: false });
+  const attempts = [{ model, useSearch }];
+  if (fallbackModel && fallbackModel !== model) {
+    attempts.push({ model: fallbackModel, useSearch: false });
   }
 
   let lastStatus = null;
-  for (const { model, useSearch: search } of attempts) {
+  for (const { model: m, useSearch: search } of attempts) {
     try {
       return await callGeminiWithRetries({
-        model,
+        model: m,
+        apiKey,
         systemInstruction,
         contents,
         temperature,
@@ -177,7 +143,7 @@ async function callGemini({ systemInstruction, contents, temperature = 0.7, useS
     } catch (err) {
       lastStatus = err.status || lastStatus;
       if (err.status !== 429 && err.status !== 503) throw err;
-      console.warn(`Gemini [${model}] failed (${err.status}), trying next option…`);
+      console.warn(`Gemini [${m}] failed (${err.status}), trying next option…`);
     }
   }
 
@@ -185,21 +151,15 @@ async function callGemini({ systemInstruction, contents, temperature = 0.7, useS
     ? 'Google rate-limited this API key (free tier: ~15–30 requests/min). '
       + 'Wait 60 seconds and try again. If this happens on your very first message, '
       + 'open aistudio.google.com → your project → check that the API has quota (billing '
-      + 'may need to be linked even for free usage). You can also set GEMINI_MODEL=gemini-2.5-flash-lite in Netlify env vars.'
+      + 'may need to be linked even for free usage). You can also set GEMINI_MODEL=gemini-2.5-flash-lite in Cloudflare env vars.'
     : lastStatus === 503
       ? "Google's AI service is briefly overloaded. Your message wasn't lost — try again in a few seconds."
-      : `The AI service is temporarily unavailable. Please try again.`;
+      : 'The AI service is temporarily unavailable. Please try again.';
   const e = new Error(friendly);
   e._userFacing = true;
   throw e;
 }
 
-// System prompt adapted from the "jacob-advisor" Claude skill, generalized
-// for any Flightway user and rewritten as a Gemini system instruction.
-// Core carried-over principles: mandatory internal reasoning protocol,
-// user-specificity filter, crux-first answers, anti-distortion checks,
-// token discipline, search-before-answering on factual claims, and
-// no-sycophancy communication rules.
 function chatSystemPrompt(dossier) {
   return `# Flightway Coach — Advising Mode
 
@@ -291,20 +251,16 @@ function dossierUpdatePrompt(currentDossier, transcript) {
   ].join('\n');
 }
 
-// Detect "update the dossier" style commands. Deliberately permissive:
-// catches "update my dossier", "please update the dossier now", "refresh
-// dossier", "save that to my dossier", etc.
 function isManualDossierCommand(message) {
   const m = message.toLowerCase();
-  return /\b(update|refresh|save|sync|regenerate)\b[^.!?]{0,40}\bdossier\b/.test(m)
-    || /\bdossier\b[^.!?]{0,30}\b(update|refresh|save)\b/.test(m);
+  return (
+    /\b(update|refresh|save|sync|regenerate)\b[^.!?]{0,40}\bdossier\b/.test(m)
+    || /\bdossier\b[^.!?]{0,30}\b(update|refresh|save)\b/.test(m)
+  );
 }
 
-async function updateDossierFromTranscript(userId, currentDossier, transcript) {
-  // The dossier update is a single one-shot user message to Gemini; we put
-  // the schema + dossier + transcript all in that one message and read back
-  // the new dossier text. Lower temperature for determinism.
-  const newDossier = await callGemini({
+async function updateDossierFromTranscript(env, userId, currentDossier, transcript) {
+  const newDossier = await callGemini(env, {
     systemInstruction:
       'You are a precise data-merger. Follow the user instructions exactly and output only the requested dossier text.',
     contents: [
@@ -316,7 +272,6 @@ async function updateDossierFromTranscript(userId, currentDossier, transcript) {
     temperature: 0.2,
   });
 
-  // Strip any accidental code fences the model might add despite instructions.
   const cleaned = newDossier
     .replace(/^```[a-zA-Z]*\n?/, '')
     .replace(/```\s*$/, '')
@@ -326,25 +281,25 @@ async function updateDossierFromTranscript(userId, currentDossier, transcript) {
     console.warn('Dossier update produced invalid output; keeping previous dossier.');
     return { updated: false, dossier: currentDossier };
   }
-  const saved = await saveDossier(userId, cleaned);
+  const saved = await saveDossier(env, userId, cleaned);
   return { updated: true, dossier: saved };
 }
 
-exports.handler = async (event) => {
-  connectBlobs(event);
-  const origin = originFromEnv();
-  const pre = preflight(event, origin);
-  if (pre) return pre;
-  if (event.httpMethod !== 'POST') {
-    return json(405, { error: 'Method not allowed' }, origin);
-  }
+export async function onRequestOptions(context) {
+  return preflightResponse(originFromEnv(context.env));
+}
 
-  if (!GEMINI_API_KEY) {
-    return json(
+export async function onRequestPost(context) {
+  const { request, env } = context;
+  const origin = originFromEnv(env);
+  const { apiKey, useSearchMode } = geminiConfig(env);
+
+  if (!apiKey) {
+    return jsonResponse(
       500,
       {
         error:
-          'AI service is not configured. The site owner needs to set GEMINI_API_KEY in Netlify → Site settings → Environment variables.',
+          'AI service is not configured. Set GEMINI_API_KEY in Cloudflare Pages → Settings → Variables and Secrets.',
       },
       origin,
     );
@@ -352,22 +307,22 @@ exports.handler = async (event) => {
 
   let payload;
   try {
-    payload = JSON.parse(event.body || '{}');
+    payload = await request.json();
   } catch {
-    return json(400, { error: 'Invalid JSON body' }, origin);
+    return jsonResponse(400, { error: 'Invalid JSON body' }, origin);
   }
 
   const userId = normalizeEmail(payload.userId);
   const userMessage = String(payload.message || '').trim();
 
   if (!isValidEmail(userId)) {
-    return json(400, { error: 'Missing or invalid userId.' }, origin);
+    return jsonResponse(400, { error: 'Missing or invalid userId.' }, origin);
   }
   if (!userMessage) {
-    return json(400, { error: 'Message cannot be empty.' }, origin);
+    return jsonResponse(400, { error: 'Message cannot be empty.' }, origin);
   }
   if (userMessage.length > MAX_MESSAGE_CHARS) {
-    return json(
+    return jsonResponse(
       400,
       { error: `Message is too long (max ${MAX_MESSAGE_CHARS} characters).` },
       origin,
@@ -375,25 +330,19 @@ exports.handler = async (event) => {
   }
 
   try {
-    // 1. Load dossier (auto-create an empty seed if a user somehow chats
-    //    before calling /account — keeps the endpoint robust).
-    let dossier = await loadDossier(userId);
+    let dossier = await loadDossier(env, userId);
     if (!dossier) {
       dossier = buildSeedDossier({});
-      await saveDossier(userId, dossier);
+      await saveDossier(env, userId, dossier);
     }
 
-    // 2. Load chat state.
-    const chat = await loadChat(userId);
+    const chat = await loadChat(env, userId);
 
-    // 2a. Manual dossier update command ("update the dossier" etc.):
-    //     refresh the dossier from the transcript-so-far WITHOUT resetting
-    //     the conversation or consuming an exchange.
     if (isManualDossierCommand(userMessage)) {
       const transcript = chat.messages.concat([{ role: 'user', content: userMessage }]);
       let updated = false;
       if (chat.messages.length > 0) {
-        const result = await updateDossierFromTranscript(userId, dossier, transcript);
+        const result = await updateDossierFromTranscript(env, userId, dossier, transcript);
         updated = result.updated;
       }
       const reply = updated
@@ -401,56 +350,45 @@ exports.handler = async (event) => {
         : chat.messages.length === 0
           ? "There's nothing new to add yet — we haven't discussed anything this conversation. Your dossier is unchanged."
           : "I tried to update the dossier but the result didn't validate, so I kept the previous version. Try again in a moment.";
-      // Don't store this exchange — it's a meta-command, not conversation.
-      return json(
+      return jsonResponse(
         200,
         { reply, exchangeCount: chat.exchangeCount, dossierUpdated: updated, reset: false, manualUpdate: true },
         origin,
       );
     }
 
-    // 3. Append user message and get the assistant reply. Web search is
-    //    enabled only when the message looks like it needs live facts.
     chat.messages.push({ role: 'user', content: userMessage });
-    const reply = await callGemini({
+    const reply = await callGemini(env, {
       systemInstruction: chatSystemPrompt(dossier),
       contents: toGeminiContents(chat.messages),
       temperature: 0.7,
-      useSearch: needsWebSearch(userMessage),
+      useSearch: needsWebSearch(userMessage, useSearchMode),
     });
 
-    // 4. Append reply + bump exchange count.
     chat.messages.push({ role: 'assistant', content: reply });
     chat.exchangeCount += 1;
 
-    // 5. If we hit the reset threshold, update the dossier inline and reset.
-    //    The final assistant reply is carried into the fresh conversation as
-    //    context (it does NOT count as one of the next 5 exchanges).
     let dossierUpdated = false;
     if (chat.exchangeCount >= EXCHANGE_RESET_AT) {
       try {
-        const result = await updateDossierFromTranscript(userId, dossier, chat.messages);
+        const result = await updateDossierFromTranscript(env, userId, dossier, chat.messages);
         dossierUpdated = result.updated;
       } catch (err) {
-        // Don't fail the whole request if the dossier update flops — the
-        // user still gets their reply. The chat still resets so memory
-        // doesn't grow unbounded.
         console.error('Dossier update failed', err);
       }
-      await saveChat(userId, {
+      await saveChat(env, userId, {
         exchangeCount: 0,
         messages: [{ role: 'assistant', content: reply }],
       });
-      return json(
+      return jsonResponse(
         200,
         { reply, exchangeCount: 0, dossierUpdated, reset: true, manualUpdate: false },
         origin,
       );
     }
 
-    // 6. Otherwise persist the new chat state and return.
-    await saveChat(userId, chat);
-    return json(
+    await saveChat(env, userId, chat);
+    return jsonResponse(
       200,
       { reply, exchangeCount: chat.exchangeCount, dossierUpdated: false, reset: false, manualUpdate: false },
       origin,
@@ -460,6 +398,6 @@ exports.handler = async (event) => {
     const msg = err && err._userFacing
       ? err.message
       : (err && err.message) || 'Chat request failed.';
-    return json(500, { error: msg }, origin);
+    return jsonResponse(500, { error: msg }, origin);
   }
-};
+}

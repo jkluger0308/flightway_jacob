@@ -1,29 +1,22 @@
-// Netlify Function: send-results
-// ---------------------------------
-// Receives { email, results_url, token } from the quiz front-end and
-// emails the user a link to their personalized results.
+// Cloudflare Pages Function — route: /send-results
+// -------------------------------------------------
+// Receives { email, results_url, token } from the quiz front-end and emails
+// the user a link to their personalized results via Resend (https://resend.com).
 //
-// Email delivery uses Resend (https://resend.com) — set the following
-// environment variables in Netlify (Site settings → Environment variables):
+// Set these in Cloudflare Pages → your project → Settings → Variables and
+// Secrets (mark RESEND_API_KEY as a Secret/encrypted):
 //
-//   RESEND_API_KEY    your Resend API key (starts with "re_…")
-//   FROM_EMAIL        the verified sender, e.g. "Flightway <quiz@yourdomain.com>"
-//                     (during dev you can use "onboarding@resend.dev")
-//   ALLOWED_ORIGIN    (optional) your site origin for CORS, e.g.
-//                     "https://your-site.netlify.app". Defaults to "*".
+//   RESEND_API_KEY   your Resend API key (starts with "re_…")
+//   FROM_EMAIL       verified sender, e.g. "Flightway <quiz@flightway.ai>"
+//                    (during dev you can use "onboarding@resend.dev")
+//   ALLOWED_ORIGIN   (optional) your site origin for CORS, e.g.
+//                    "https://flightway.ai". Defaults to "*".
 //
 // No DB. The full quiz state is encoded in the results_url hash, so this
 // function only needs to send the email.
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 
-// Single place to inject your Resend settings.
-// Set RESEND_API_KEY and FROM_EMAIL in Netlify Site settings → Environment variables
-// or in a local .env file when running `netlify dev`.
-const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
-const FROM_EMAIL = process.env.FROM_EMAIL || 'Flightway <onboarding@resend.dev>';
-
-// Minimal email validator — same shape as the client check.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function cors(origin) {
@@ -36,14 +29,12 @@ function cors(origin) {
 }
 
 function json(status, body, origin) {
-  return {
-    statusCode: status,
+  return new Response(JSON.stringify(body), {
+    status,
     headers: { 'Content-Type': 'application/json', ...cors(origin) },
-    body: JSON.stringify(body),
-  };
+  });
 }
 
-// Escape user-controllable strings before embedding in HTML.
 function esc(s) {
   return String(s)
     .replace(/&/g, '&amp;')
@@ -62,18 +53,18 @@ function buildHtml(resultsUrl) {
       <tr><td align="center">
         <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;box-shadow:0 6px 24px rgba(15,23,42,0.06);overflow:hidden;">
           <tr><td style="padding:36px 40px 0;text-align:center;">
-            <div style="font-size:12px;letter-spacing:3px;font-weight:700;color:#1a56db;text-transform:uppercase;margin-bottom:10px;">Flightway Flightway</div>
-            <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:30px;font-weight:700;color:#0f172a;margin:0 0 14px;line-height:1.2;">Your results from your career quiz are ready</h1>
+            <div style="font-size:12px;letter-spacing:3px;font-weight:700;color:#1a56db;text-transform:uppercase;margin-bottom:10px;">Flightway</div>
+            <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:30px;font-weight:700;color:#0f172a;margin:0 0 14px;line-height:1.2;">Your career hub is ready</h1>
             <p style="font-size:15px;line-height:1.65;color:#475569;margin:0 0 28px;">
               Thanks for completing the Flightway quiz. We scored your answers
-              across 12 industries and built a personalized breakdown — top matches,
-              recommended majors, classes to try, and salary outlook.
+              across 12 industries and built your personalized career map — your
+              best-fit paths, lit up just for you.
             </p>
           </td></tr>
           <tr><td align="center" style="padding:0 40px 32px;">
             <a href="${safeUrl}"
                style="display:inline-block;padding:15px 36px;background:#1a56db;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;border-radius:100px;box-shadow:0 4px 14px rgba(26,86,219,0.35);">
-              View My Results →
+              Open My Career Hub →
             </a>
           </td></tr>
           <tr><td style="padding:0 40px 36px;">
@@ -97,10 +88,10 @@ function buildHtml(resultsUrl) {
 
 function buildText(resultsUrl) {
   return [
-    'Your results from your career quiz are ready.',
+    'Your career hub is ready.',
     '',
-    'Thanks for completing the Flightway Flightway quiz. Click the link',
-    'below to view your personalized results:',
+    'Thanks for completing the Flightway quiz. Click the link below to',
+    'open your personalized career map:',
     '',
     resultsUrl,
     '',
@@ -108,19 +99,18 @@ function buildText(resultsUrl) {
   ].join('\n');
 }
 
-exports.handler = async (event) => {
-  const origin = process.env.ALLOWED_ORIGIN || '*';
+export async function onRequestOptions(context) {
+  const origin = context.env.ALLOWED_ORIGIN || '*';
+  return new Response(null, { status: 204, headers: cors(origin) });
+}
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers: cors(origin), body: '' };
-  }
-  if (event.httpMethod !== 'POST') {
-    return json(405, { error: 'Method not allowed' }, origin);
-  }
+export async function onRequestPost(context) {
+  const { request, env } = context;
+  const origin = env.ALLOWED_ORIGIN || '*';
 
   let payload;
   try {
-    payload = JSON.parse(event.body || '{}');
+    payload = await request.json();
   } catch {
     return json(400, { error: 'Invalid JSON body' }, origin);
   }
@@ -131,20 +121,19 @@ exports.handler = async (event) => {
   if (!EMAIL_RE.test(email)) {
     return json(400, { error: 'Please provide a valid email address.' }, origin);
   }
-  // Only allow http(s) URLs to prevent the email becoming an open redirect to javascript: etc.
   if (!/^https?:\/\//i.test(resultsUrl) || resultsUrl.length > 8000) {
     return json(400, { error: 'Invalid results URL.' }, origin);
   }
 
-  const apiKey = RESEND_API_KEY;
-  const fromEmail = FROM_EMAIL;
+  const apiKey = env.RESEND_API_KEY || '';
+  const fromEmail = env.FROM_EMAIL || 'Flightway <onboarding@resend.dev>';
   if (!apiKey) {
     console.error('RESEND_API_KEY is not configured');
     return json(
       500,
       {
         error:
-          'Email service is not configured. Add RESEND_API_KEY in Netlify Site settings → Environment variables (or your local .env file) and redeploy or restart netlify dev.',
+          'Email service is not configured. Add RESEND_API_KEY in Cloudflare Pages → Settings → Variables and Secrets, then redeploy.',
       },
       origin,
     );
@@ -160,7 +149,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         from: fromEmail,
         to: [email],
-        subject: 'Your results from your career quiz are ready',
+        subject: 'Your Flightway career hub is ready',
         html: buildHtml(resultsUrl),
         text: buildText(resultsUrl),
       }),
@@ -193,4 +182,4 @@ exports.handler = async (event) => {
     console.error('send-results failed', err);
     return json(500, { error: 'Could not send email. Please try again.' }, origin);
   }
-};
+}
