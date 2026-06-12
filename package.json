@@ -5,5 +5,8 @@
   "description": "Flightway career-quiz site + AI coach (Cloudflare Pages Functions).",
   "engines": {
     "node": ">=18"
+  },
+  "scripts": {
+    "deploy": "wrangler pages deploy . --project-name=flightway --branch=${CF_PAGES_BRANCH:-main}"
   }
 }

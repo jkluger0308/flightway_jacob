@@ -9,18 +9,35 @@ Flightway's AI career coach uses **Cloudflare Pages Functions** (in `/functions/
 
 ## Cloudflare Dashboard build settings (important)
 
-If Git deploy fails with `Missing entry-point to Worker script` or `wrangler deploy` warnings:
+You likely have **two** things named `flightway`:
 
-**Workers & Pages → flightway → Settings → Builds** must be:
+| Type | What it is | Git deploy behavior |
+|---|---|---|
+| **Worker** (Workers Builds) | Wrong for this repo — defaults to `npx wrangler deploy` | **This is what’s failing** |
+| **Pages** project | Correct — static HTML + `/functions/` | Auto-uploads assets (no deploy command) |
 
-| Setting | Value |
-|---|---|
-| Framework preset | None |
-| Build command | *(leave empty)* |
-| Build output directory | `.` |
-| **Deploy command** | *(leave empty — do NOT use `npx wrangler deploy`)* |
+### Fix option A (recommended): use Pages, not Worker
 
-This repo is a **Pages** project (static HTML + `/functions/`). Cloudflare uploads assets automatically. Only use `npx wrangler pages deploy . --project-name=flightway` for manual CLI deploys.
+1. **Workers & Pages → flightway (Worker)** → Settings → Git → **Disconnect** (or delete this Worker)
+2. **Workers & Pages → flightway (Pages)** → Settings → Builds:
+   - Build command: *(empty)*
+   - Build output directory: **`.`**
+   - Deploy command: ***(empty)***
+3. Connect Git to the **Pages** project, not the Worker
+
+Live site: **https://flightway.pages.dev**
+
+### Fix option B: keep Worker Git build
+
+If Git is connected to the **Worker**, set **Deploy command** to:
+
+```bash
+npm run deploy
+```
+
+(`package.json` includes this script → `wrangler pages deploy . --project-name=flightway`)
+
+Do **not** use `npx wrangler deploy` — that command is for Workers scripts, not this static Pages site.
 
 ---
 
