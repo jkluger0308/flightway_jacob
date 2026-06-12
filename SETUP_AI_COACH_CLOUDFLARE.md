@@ -7,6 +7,23 @@ Flightway's AI career coach uses **Cloudflare Pages Functions** (in `/functions/
 
 ---
 
+## Cloudflare Dashboard build settings (important)
+
+If Git deploy fails with `Missing entry-point to Worker script` or `wrangler deploy` warnings:
+
+**Workers & Pages → flightway → Settings → Builds** must be:
+
+| Setting | Value |
+|---|---|
+| Framework preset | None |
+| Build command | *(leave empty)* |
+| Build output directory | `.` |
+| **Deploy command** | *(leave empty — do NOT use `npx wrangler deploy`)* |
+
+This repo is a **Pages** project (static HTML + `/functions/`). Cloudflare uploads assets automatically. Only use `npx wrangler pages deploy . --project-name=flightway` for manual CLI deploys.
+
+---
+
 ## Already configured (via Wrangler)
 
 | Item | Status |
